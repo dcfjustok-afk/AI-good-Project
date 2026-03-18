@@ -34,6 +34,10 @@ export function HomePage() {
   });
   const syncDataMutation = useSyncData();
   const toggleFavoriteMutation = useToggleFavorite();
+  const syncErrorMessage =
+    syncDataMutation.error instanceof Error
+      ? syncDataMutation.error.message
+      : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
 
   return (
     <div className="space-y-6">
@@ -73,12 +77,24 @@ export function HomePage() {
           {syncDataMutation.data ? (
             <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
               {syncDataMutation.data.message} 本次处理 {syncDataMutation.data.processed} 个仓库，新增 {syncDataMutation.data.inserted} 个，更新 {syncDataMutation.data.updated} 个。
+              {syncDataMutation.data.usedFallback ? (
+                <p className="mt-2 text-white/70">
+                  兜底信息：GitHub 失败 {syncDataMutation.data.githubRequestsFailed} 次，AI 回退 {syncDataMutation.data.aiFallbackCount} 个仓库。
+                </p>
+              ) : null}
+              {syncDataMutation.data.warnings.length ? (
+                <ul className="mt-2 space-y-1 text-xs text-white/70">
+                  {syncDataMutation.data.warnings.slice(0, 3).map((warning) => (
+                    <li key={warning}>- {warning}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
           ) : null}
 
           {syncDataMutation.isError ? (
             <div className="mt-4 rounded-2xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              同步失败。请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。
+              同步失败。{syncErrorMessage}
             </div>
           ) : null}
         </div>
@@ -102,6 +118,18 @@ export function HomePage() {
             <div>
               <dt className="font-medium text-ink">模型</dt>
               <dd className="mt-1">{healthQuery.data?.model || "MiniMax-M2.5"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">MiniMax Key</dt>
+              <dd className="mt-1">
+                {healthQuery.data?.minimaxApiKeyConfigured ? "已配置，可走 AI 摘要" : "未配置，将回退规则摘要"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">GitHub Token</dt>
+              <dd className="mt-1">
+                {healthQuery.data?.githubTokenConfigured ? "已配置，可提升速率限制" : "未配置，使用匿名请求"}
+              </dd>
             </div>
             <div>
               <dt className="font-medium text-ink">兼容端点</dt>

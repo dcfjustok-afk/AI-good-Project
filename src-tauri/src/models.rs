@@ -10,6 +10,8 @@ pub struct HealthCheckResponse {
     pub base_url: String,
     pub model: String,
     pub database_path: String,
+    pub github_token_configured: bool,
+    pub minimax_api_key_configured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -74,7 +76,11 @@ pub struct SyncDataResponse {
     pub inserted: usize,
     pub updated: usize,
     pub used_ai: bool,
+    pub used_fallback: bool,
+    pub github_requests_failed: usize,
+    pub ai_fallback_count: usize,
     pub message: String,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]

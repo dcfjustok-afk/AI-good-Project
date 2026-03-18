@@ -1,9 +1,11 @@
 use std::{collections::HashMap, time::Duration};
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use reqwest::{header, Client};
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
+use tokio::time::sleep;
 
 use crate::{config::AppConfig, models::SyncedProject};
 
@@ -12,6 +14,14 @@ pub const DEFAULT_MINIMAX_API_BASE_URL: &str = "https://api.minimaxi.com/v1";
 pub const DEFAULT_MINIMAX_ANTHROPIC_BASE_URL: &str = "https://api.minimaxi.com/anthropic";
 
 const SEARCH_KEYWORDS: [&str; 4] = ["ai agent", "llm", "rag", "open source ai"];
+const MAX_RETRIES: usize = 3;
+
+pub struct FetchProjectsResult {
+    pub projects: Vec<SyncedProject>,
+    pub github_requests_failed: usize,
+    pub ai_fallback_count: usize,
+    pub warnings: Vec<String>,
+}
 
 pub fn build_user_agent() -> String {
     format!("{}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
@@ -77,37 +87,45 @@ struct GeneratedSummary {
     category: String,
 }
 
-pub async fn fetch_trending_projects(config: &AppConfig) -> Result<Vec<SyncedProject>> {
+pub async fn fetch_trending_projects(config: &AppConfig) -> Result<FetchProjectsResult> {
     let client = build_client(config)?;
     let mut repositories = HashMap::new();
+    let mut warnings = Vec::new();
+    let mut github_requests_failed = 0;
+    let mut ai_fallback_count = 0;
 
     for keyword in SEARCH_KEYWORDS {
-        let query = format!("{keyword} in:name,description,readme stars:>500 archived:false")
-            .replace(' ', "%20");
-        let url = format!(
-            "{}/search/repositories?q={query}&sort=stars&order=desc&per_page=6",
-            config.github_api_base_url.trim_end_matches('/')
-        );
-
-        let response = client
-            .get(url)
-            .send()
-            .await
-            .with_context(|| format!("failed to fetch GitHub repositories for keyword: {keyword}"))?
-            .error_for_status()
-            .with_context(|| format!("GitHub search request failed for keyword: {keyword}"))?
-            .json::<GitHubSearchResponse>()
-            .await
-            .context("failed to parse GitHub search response")?;
-
-        for item in response.items {
-            repositories.entry(item.full_name.clone()).or_insert(item);
+        match fetch_github_repositories(&client, config, keyword).await {
+            Ok(response) => {
+                for item in response.items {
+                    repositories.entry(item.full_name.clone()).or_insert(item);
+                }
+            }
+            Err(error) => {
+                github_requests_failed += 1;
+                warnings.push(format!("GitHub 关键词 {keyword} 抓取失败：{error}"));
+            }
         }
+    }
+
+    if repositories.is_empty() {
+        return Err(anyhow!("所有 GitHub 抓取请求都失败了，请检查网络连通性或 GITHUB_TOKEN 配置"));
     }
 
     let mut projects = Vec::new();
     for repository in repositories.into_values() {
-        let summary = summarize_project(config, &client, &repository).await?;
+        let summary = match try_generate_summary(config, &client, &repository).await {
+            Ok(summary) => summary,
+            Err(error) => {
+                ai_fallback_count += 1;
+                warnings.push(format!(
+                    "仓库 {} 的 AI 摘要生成失败，已自动回退：{}",
+                    repository.full_name, error
+                ));
+                rule_based_summary(&repository)
+            }
+        };
+
         projects.push(SyncedProject {
             owner: repository.owner.login,
             repo: repository.name,
@@ -135,10 +153,30 @@ pub async fn fetch_trending_projects(config: &AppConfig) -> Result<Vec<SyncedPro
     }
 
     projects.sort_by(|left, right| right.score.cmp(&left.score));
-    Ok(projects)
+    Ok(FetchProjectsResult {
+        projects,
+        github_requests_failed,
+        ai_fallback_count,
+        warnings,
+    })
 }
 
-async fn summarize_project(
+async fn fetch_github_repositories(
+    client: &Client,
+    config: &AppConfig,
+    keyword: &str,
+) -> Result<GitHubSearchResponse> {
+    let query = format!("{keyword} in:name,description,readme stars:>500 archived:false")
+        .replace(' ', "%20");
+    let url = format!(
+        "{}/search/repositories?q={query}&sort=stars&order=desc&per_page=6",
+        config.github_api_base_url.trim_end_matches('/')
+    );
+
+    get_json_with_retry(client, &url, &format!("GitHub repositories for keyword: {keyword}")).await
+}
+
+async fn try_generate_summary(
     config: &AppConfig,
     client: &Client,
     repository: &GitHubRepositoryItem,
@@ -155,10 +193,11 @@ async fn summarize_project(
         repository.topics.clone().unwrap_or_default().join(", ")
     );
 
-    let response = client
-        .post(format!("{}/chat/completions", config.minimax_base_url.trim_end_matches('/')))
-        .bearer_auth(config.minimax_api_key.clone().unwrap_or_default())
-        .json(&json!({
+    let response: OpenAiChatResponse = post_json_with_retry(
+        client,
+        &format!("{}/chat/completions", config.minimax_base_url.trim_end_matches('/')),
+        config.minimax_api_key.as_deref().unwrap_or_default(),
+        &json!({
             "model": config.minimax_model,
             "temperature": 0.3,
             "response_format": { "type": "json_object" },
@@ -166,15 +205,10 @@ async fn summarize_project(
                 { "role": "system", "content": "你输出的必须是合法 JSON，且适合中文产品情报站直接展示。" },
                 { "role": "user", "content": prompt }
             ]
-        }))
-        .send()
-        .await
-        .context("failed to request MiniMax summary")?
-        .error_for_status()
-        .context("MiniMax summary request returned error status")?
-        .json::<OpenAiChatResponse>()
-        .await
-        .context("failed to parse MiniMax response")?;
+        }),
+        &format!("MiniMax summary for {}", repository.full_name),
+    )
+    .await?;
 
     let content = response
         .choices
@@ -184,6 +218,102 @@ async fn summarize_project(
         .context("MiniMax response did not contain summary content")?;
 
     serde_json::from_str::<GeneratedSummary>(&content).or_else(|_| Ok(rule_based_summary(repository)))
+}
+
+async fn get_json_with_retry<T>(client: &Client, url: &str, context_label: &str) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    for attempt in 1..=MAX_RETRIES {
+        match client.get(url).send().await {
+            Ok(response) => {
+                let status = response.status();
+
+                if status.is_success() {
+                    return response
+                        .json::<T>()
+                        .await
+                        .with_context(|| format!("failed to parse response for {context_label}"));
+                }
+
+                let body = response.text().await.unwrap_or_default();
+                if attempt < MAX_RETRIES && should_retry_status(status.as_u16()) {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+
+                return Err(anyhow!(
+                    "request for {context_label} failed with status {}: {}",
+                    status,
+                    summarize_error_body(&body)
+                ));
+            }
+            Err(error) => {
+                if attempt < MAX_RETRIES && should_retry_error(&error) {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+
+                return Err(error).with_context(|| format!("failed to request {context_label}"));
+            }
+        }
+    }
+
+    Err(anyhow!("request retry loop unexpectedly exhausted for {context_label}"))
+}
+
+async fn post_json_with_retry<T>(
+    client: &Client,
+    url: &str,
+    bearer_token: &str,
+    payload: &serde_json::Value,
+    context_label: &str,
+) -> Result<T>
+where
+    T: DeserializeOwned,
+{
+    for attempt in 1..=MAX_RETRIES {
+        match client
+            .post(url)
+            .bearer_auth(bearer_token)
+            .json(payload)
+            .send()
+            .await
+        {
+            Ok(response) => {
+                let status = response.status();
+
+                if status.is_success() {
+                    return response
+                        .json::<T>()
+                        .await
+                        .with_context(|| format!("failed to parse response for {context_label}"));
+                }
+
+                let body = response.text().await.unwrap_or_default();
+                if attempt < MAX_RETRIES && should_retry_status(status.as_u16()) {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+
+                return Err(anyhow!(
+                    "request for {context_label} failed with status {}: {}",
+                    status,
+                    summarize_error_body(&body)
+                ));
+            }
+            Err(error) => {
+                if attempt < MAX_RETRIES && should_retry_error(&error) {
+                    sleep(retry_delay(attempt)).await;
+                    continue;
+                }
+
+                return Err(error).with_context(|| format!("failed to request {context_label}"));
+            }
+        }
+    }
+
+    Err(anyhow!("request retry loop unexpectedly exhausted for {context_label}"))
 }
 
 fn build_client(config: &AppConfig) -> Result<Client> {
@@ -214,6 +344,27 @@ fn build_client(config: &AppConfig) -> Result<Client> {
 
 fn calculate_score(stars: i64, forks: i64, frontend_relevance: i64) -> i64 {
     stars / 200 + forks / 100 + frontend_relevance * 10
+}
+
+fn should_retry_status(status: u16) -> bool {
+    status == 408 || status == 425 || status == 429 || status >= 500
+}
+
+fn should_retry_error(error: &reqwest::Error) -> bool {
+    error.is_timeout() || error.is_connect() || error.is_request()
+}
+
+fn retry_delay(attempt: usize) -> Duration {
+    Duration::from_millis(350 * attempt as u64)
+}
+
+fn summarize_error_body(body: &str) -> String {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        "empty response body".to_string()
+    } else {
+        trimmed.chars().take(180).collect()
+    }
 }
 
 fn rule_based_summary(repository: &GitHubRepositoryItem) -> GeneratedSummary {

@@ -4,6 +4,8 @@ export type HealthCheckResponse = {
   baseUrl: string;
   model: string;
   databasePath: string;
+  githubTokenConfigured: boolean;
+  minimaxApiKeyConfigured: boolean;
 };
 
 export type ProjectFilters = {
@@ -70,5 +72,9 @@ export type SyncDataResponse = {
   inserted: number;
   updated: number;
   usedAi: boolean;
+  usedFallback: boolean;
+  githubRequestsFailed: number;
+  aiFallbackCount: number;
   message: string;
+  warnings: string[];
 };
