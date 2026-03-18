@@ -2,6 +2,7 @@ import { CheckCircle2, Database, RefreshCcw, Server } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
 import { useAppHealth } from "../hooks/use-app-health";
 import { useProjects } from "../hooks/use-projects";
+import { useSyncData } from "../hooks/use-sync-data";
 import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 import { useProjectFiltersStore } from "../store/use-project-filters";
 
@@ -31,18 +32,19 @@ export function HomePage() {
     sortBy: "score",
     limit: 12,
   });
+  const syncDataMutation = useSyncData();
   const toggleFavoriteMutation = useToggleFavorite();
 
   return (
     <div className="space-y-6">
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
         <div className="rounded-[32px] bg-ink px-6 py-8 text-white shadow-card sm:px-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-white/60">MVP Phase 0</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-white/60">MVP Phase 2</p>
           <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">
-            用桌面端骨架先跑通路由、运行时配置和 Tauri 通信，再逐步接入真实数据链路。
+            本地数据闭环已经打通，现在可以手动同步 GitHub AI 项目并把摘要写回 SQLite。
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">
-            当前页面使用占位项目展示未来信息布局，同时已经验证前端可通过 React Query 调用 Rust 命令读取应用健康状态。
+            如果本地配置了 MiniMax API Key，同步时会直接调用兼容 OpenAI 的接口生成结构化摘要；否则自动回退到规则摘要，保证链路可用。
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -58,10 +60,27 @@ export function HomePage() {
             >
               {frontendOnly ? "仅看前端相关：已开启" : "仅看前端相关：未开启"}
             </button>
-            <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/70">
-              下一步将接入真实筛选查询参数
-            </span>
+            <button
+              type="button"
+              onClick={() => syncDataMutation.mutate()}
+              disabled={syncDataMutation.isPending}
+              className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-60"
+            >
+              {syncDataMutation.isPending ? "正在同步 GitHub 数据..." : "手动同步 GitHub 榜单"}
+            </button>
           </div>
+
+          {syncDataMutation.data ? (
+            <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+              {syncDataMutation.data.message} 本次处理 {syncDataMutation.data.processed} 个仓库，新增 {syncDataMutation.data.inserted} 个，更新 {syncDataMutation.data.updated} 个。
+            </div>
+          ) : null}
+
+          {syncDataMutation.isError ? (
+            <div className="mt-4 rounded-2xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              同步失败。请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-card backdrop-blur">
@@ -115,7 +134,7 @@ export function HomePage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-slate/60">本地榜单</p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink">Phase 1 已接入 SQLite 种子数据与查询命令</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">本地 SQLite 已支持种子数据和手动同步结果</h2>
           </div>
         </div>
 

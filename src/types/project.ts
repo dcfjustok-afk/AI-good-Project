@@ -64,3 +64,11 @@ export type FavoriteToggleResponse = {
   projectId: number;
   isFavorite: boolean;
 };
+
+export type SyncDataResponse = {
+  processed: number;
+  inserted: number;
+  updated: number;
+  usedAi: boolean;
+  message: string;
+};
