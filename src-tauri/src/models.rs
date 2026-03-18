@@ -9,18 +9,61 @@ pub struct HealthCheckResponse {
     pub message: String,
     pub base_url: String,
     pub model: String,
+    pub database_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectSummary {
     pub id: i64,
+    pub owner: String,
+    pub repo: String,
     pub repo_name: String,
     pub description: String,
     pub language: Option<String>,
     pub stars: i64,
     pub forks: i64,
     pub updated_at: String,
+    pub category: String,
+    pub frontend_relevance: i64,
+    pub summary: String,
+    pub topics: Vec<String>,
+    pub demo_url: Option<String>,
+    pub is_favorite: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectDetail {
+    pub id: i64,
+    pub owner: String,
+    pub repo: String,
+    pub repo_name: String,
+    pub description: String,
+    pub github_url: String,
+    pub homepage_url: Option<String>,
+    pub demo_url: Option<String>,
+    pub language: Option<String>,
+    pub stars: i64,
+    pub forks: i64,
+    pub open_issues: i64,
+    pub updated_at: String,
+    pub category: String,
+    pub frontend_relevance: i64,
+    pub summary: String,
+    pub highlights: Vec<String>,
+    pub use_cases: Vec<String>,
+    pub frontend_value: String,
+    pub learning_cost: String,
+    pub topics: Vec<String>,
+    pub license: Option<String>,
+    pub is_favorite: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FavoriteToggleResponse {
+    pub project_id: i64,
     pub is_favorite: bool,
 }
 
@@ -30,6 +73,8 @@ pub struct ProjectFilters {
     pub language: Option<String>,
     pub category: Option<String>,
     pub frontend_only: Option<bool>,
+    pub favorites_only: Option<bool>,
     pub has_demo: Option<bool>,
     pub sort_by: Option<String>,
+    pub limit: Option<u32>,
 }

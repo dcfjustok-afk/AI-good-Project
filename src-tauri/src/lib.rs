@@ -7,9 +7,12 @@ mod services;
 
 use config::AppConfig;
 use db::initialize_schema;
+use std::path::PathBuf;
+use tauri::Manager;
 
 pub struct AppState {
     pub config: AppConfig,
+    pub db_path: PathBuf,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -18,12 +21,23 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState { config })
-        .setup(|_app| {
-            initialize_schema().map_err(|error| error.to_string())?;
+        .setup(move |app| {
+            let db_path = initialize_schema(app.handle().clone()).map_err(|error| error.to_string())?;
+
+            app.manage(AppState {
+                config: config.clone(),
+                db_path,
+            });
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::health_check])
+        .invoke_handler(tauri::generate_handler![
+            commands::health_check,
+            commands::get_projects,
+            commands::get_project_detail,
+            commands::toggle_favorite,
+            commands::get_favorites
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
