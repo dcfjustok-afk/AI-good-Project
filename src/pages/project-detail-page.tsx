@@ -1,9 +1,15 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
+import { useProjectDetail } from "../hooks/use-project-detail";
+import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 
 export function ProjectDetailPage() {
   const { owner, repo } = useParams();
   const projectName = owner && repo ? `${owner}/${repo}` : "未选择项目";
+  const detailQuery = useProjectDetail(owner, repo);
+  const toggleFavoriteMutation = useToggleFavorite();
+
+  const detail = detailQuery.data;
 
   return (
     <section className="space-y-6">
@@ -16,41 +22,131 @@ export function ProjectDetailPage() {
       </Link>
 
       <article className="rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-card backdrop-blur sm:p-8">
+        {detailQuery.isLoading ? (
+          <p className="text-sm text-slate/80">正在读取项目详情...</p>
+        ) : null}
+
+        {detailQuery.isError ? (
+          <p className="text-sm text-red-700">详情读取失败，请确认数据库中存在该项目。</p>
+        ) : null}
+
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">详情页骨架</p>
-            <h1 className="mt-2 text-3xl font-semibold text-ink">{projectName}</h1>
+            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">项目详情</p>
+            <h1 className="mt-2 text-3xl font-semibold text-ink">{detail?.repoName || projectName}</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate/80 sm:text-base">
-              Phase 1 和 Phase 2 完成后，此页面会接入仓库基础信息、AI 摘要、亮点、适用场景、前端价值说明与收藏操作。
+              {detail?.summary || "Phase 1 已接入本地详情查询，Phase 2 会继续把真实 GitHub 数据与 AI 摘要写进这里。"}
             </p>
           </div>
 
-          <a
-            href={`https://github.com/${projectName}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-mist px-4 py-2 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
-          >
-            打开 GitHub
-            <ExternalLink className="h-4 w-4" />
-          </a>
+          <div className="flex flex-wrap gap-3">
+            {detail ? (
+              <button
+                type="button"
+                onClick={() => toggleFavoriteMutation.mutate(detail.id)}
+                className={[
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
+                  detail.isFavorite
+                    ? "border-accent/30 bg-accent/10 text-accent"
+                    : "border-ink/10 bg-mist text-ink hover:border-accent hover:text-accent",
+                ].join(" ")}
+              >
+                <Heart className="h-4 w-4" fill={detail.isFavorite ? "currentColor" : "none"} />
+                {detail.isFavorite ? "已收藏" : "加入收藏"}
+              </button>
+            ) : null}
+
+            <a
+              href={detail?.githubUrl || `https://github.com/${projectName}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-mist px-4 py-2 text-sm font-medium text-ink transition hover:border-accent hover:text-accent"
+            >
+              打开 GitHub
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
           <section className="rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">结构化摘要</h2>
-            <p className="mt-3 text-sm leading-6 text-slate/80">
-              这里将展示一句话介绍、核心亮点、适用场景、前端价值和学习成本。
-            </p>
+            <ul className="mt-3 space-y-3 text-sm leading-6 text-slate/80">
+              {(detail?.highlights || ["等待同步链路接入后写入亮点摘要"]).map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+
+            <div className="mt-5 rounded-2xl bg-white/70 p-4 text-sm text-slate/80">
+              <p className="font-medium text-ink">前端价值</p>
+              <p className="mt-2">{detail?.frontendValue || "后续会由 AI 摘要生成模块补充前端价值判断。"}</p>
+            </div>
           </section>
 
           <section className="rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">项目元数据</h2>
-            <p className="mt-3 text-sm leading-6 text-slate/80">
-              这里将展示 stars、forks、语言、最近更新时间、topics、license 与 Demo 链接。
-            </p>
+            <dl className="mt-3 grid gap-3 text-sm text-slate/80 sm:grid-cols-2">
+              <div>
+                <dt className="font-medium text-ink">语言</dt>
+                <dd className="mt-1">{detail?.language || "未知"}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">Stars</dt>
+                <dd className="mt-1">{detail?.stars || 0}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">Forks</dt>
+                <dd className="mt-1">{detail?.forks || 0}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">Open Issues</dt>
+                <dd className="mt-1">{detail?.openIssues || 0}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">学习成本</dt>
+                <dd className="mt-1">{detail?.learningCost || "中"}</dd>
+              </div>
+              <div>
+                <dt className="font-medium text-ink">License</dt>
+                <dd className="mt-1">{detail?.license || "未知"}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {(detail?.topics || []).map((topic) => (
+                <span key={topic} className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate">
+                  {topic}
+                </span>
+              ))}
+            </div>
+
+            {detail?.demoUrl || detail?.homepageUrl ? (
+              <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                {detail.homepageUrl ? (
+                  <a href={detail.homepageUrl} target="_blank" rel="noreferrer" className="font-medium text-ink underline-offset-4 hover:underline">
+                    官网
+                  </a>
+                ) : null}
+                {detail.demoUrl ? (
+                  <a href={detail.demoUrl} target="_blank" rel="noreferrer" className="font-medium text-ink underline-offset-4 hover:underline">
+                    Demo
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         </div>
+
+        {detail?.useCases?.length ? (
+          <section className="mt-4 rounded-[24px] bg-mist p-5">
+            <h2 className="text-lg font-semibold text-ink">适用场景</h2>
+            <ul className="mt-3 space-y-2 text-sm leading-6 text-slate/80">
+              {detail.useCases.map((item) => (
+                <li key={item}>• {item}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
       </article>
     </section>
   );

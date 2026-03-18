@@ -3,18 +3,64 @@ export type HealthCheckResponse = {
   message: string;
   baseUrl: string;
   model: string;
+  databasePath: string;
 };
 
-export type ProjectCardViewModel = {
-  name: string;
+export type ProjectFilters = {
+  language?: string;
+  category?: string;
+  frontendOnly?: boolean;
+  favoritesOnly?: boolean;
+  hasDemo?: boolean;
+  sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance";
+  limit?: number;
+};
+
+export type ProjectSummary = {
+  id: number;
   owner: string;
   repo: string;
-  category: string;
-  frontendFitLabel: string;
-  summary: string;
-  tags: string[];
-  stars: string;
-  forks: string;
-  language: string;
+  repoName: string;
+  description: string;
+  language: string | null;
+  stars: number;
+  forks: number;
   updatedAt: string;
+  category: string;
+  summary: string;
+  topics: string[];
+  demoUrl: string | null;
+  frontendRelevance: number;
+  isFavorite: boolean;
+};
+
+export type ProjectDetail = {
+  id: number;
+  owner: string;
+  repo: string;
+  repoName: string;
+  description: string;
+  githubUrl: string;
+  homepageUrl: string | null;
+  demoUrl: string | null;
+  language: string | null;
+  stars: number;
+  forks: number;
+  openIssues: number;
+  updatedAt: string;
+  category: string;
+  frontendRelevance: number;
+  summary: string;
+  highlights: string[];
+  useCases: string[];
+  frontendValue: string;
+  learningCost: string;
+  topics: string[];
+  license: string | null;
+  isFavorite: boolean;
+};
+
+export type FavoriteToggleResponse = {
+  projectId: number;
+  isFavorite: boolean;
 };

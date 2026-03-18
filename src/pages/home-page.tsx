@@ -1,37 +1,9 @@
 import { CheckCircle2, Database, RefreshCcw, Server } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
 import { useAppHealth } from "../hooks/use-app-health";
+import { useProjects } from "../hooks/use-projects";
+import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 import { useProjectFiltersStore } from "../store/use-project-filters";
-import type { ProjectCardViewModel } from "../types/project";
-
-const placeholderProjects: ProjectCardViewModel[] = [
-  {
-    name: "langgenius/dify",
-    owner: "langgenius",
-    repo: "dify",
-    category: "LLM 应用",
-    frontendFitLabel: "前端相关度高",
-    summary: "工作流编排与应用发布能力完整，后续可作为 AI SaaS 交互设计与控制台体验参考。",
-    tags: ["workflow", "agent", "dashboard"],
-    stars: "92k",
-    forks: "13k",
-    language: "TypeScript",
-    updatedAt: "2 小时前",
-  },
-  {
-    name: "microsoft/autogen",
-    owner: "microsoft",
-    repo: "autogen",
-    category: "AI Agent",
-    frontendFitLabel: "可做交互研究",
-    summary: "多智能体协作链路成熟，适合后续补充 Agent 操作可视化与调试台展示方式。",
-    tags: ["multi-agent", "python", "observability"],
-    stars: "41k",
-    forks: "6k",
-    language: "Python",
-    updatedAt: "昨天",
-  },
-];
 
 const milestones = [
   {
@@ -54,6 +26,12 @@ const milestones = [
 export function HomePage() {
   const { frontendOnly, toggleFrontendOnly } = useProjectFiltersStore();
   const healthQuery = useAppHealth();
+  const projectsQuery = useProjects({
+    frontendOnly,
+    sortBy: "score",
+    limit: 12,
+  });
+  const toggleFavoriteMutation = useToggleFavorite();
 
   return (
     <div className="space-y-6">
@@ -110,6 +88,10 @@ export function HomePage() {
               <dt className="font-medium text-ink">兼容端点</dt>
               <dd className="mt-1 break-all">{healthQuery.data?.baseUrl || "https://api.minimaxi.com/v1"}</dd>
             </div>
+            <div>
+              <dt className="font-medium text-ink">数据库位置</dt>
+              <dd className="mt-1 break-all text-xs">{healthQuery.data?.databasePath || "初始化中"}</dd>
+            </div>
           </dl>
         </div>
       </section>
@@ -132,16 +114,41 @@ export function HomePage() {
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">榜单预览</p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink">未来真实数据会落在这个布局里</h2>
+            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">本地榜单</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">Phase 1 已接入 SQLite 种子数据与查询命令</h2>
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          {placeholderProjects.map((project) => (
-            <ProjectCard key={project.name} project={project} />
-          ))}
-        </div>
+        {projectsQuery.isLoading ? (
+          <div className="rounded-[24px] border border-white/80 bg-white/80 p-6 text-sm text-slate/80 shadow-card">
+            正在从本地数据库读取项目列表...
+          </div>
+        ) : null}
+
+        {projectsQuery.isError ? (
+          <div className="rounded-[24px] border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-card">
+            项目列表读取失败，请检查 Tauri 命令与数据库初始化状态。
+          </div>
+        ) : null}
+
+        {projectsQuery.data?.length ? (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {projectsQuery.data.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onToggleFavorite={(projectId) => toggleFavoriteMutation.mutate(projectId)}
+                isTogglingFavorite={toggleFavoriteMutation.isPending}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {projectsQuery.data && projectsQuery.data.length === 0 ? (
+          <div className="rounded-[24px] border border-white/80 bg-white/80 p-6 text-sm text-slate/80 shadow-card">
+            当前筛选条件下没有项目，后续接入真实同步后这里会展示数据库中的 GitHub 仓库列表。
+          </div>
+        ) : null}
       </section>
     </div>
   );
