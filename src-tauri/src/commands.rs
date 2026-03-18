@@ -2,7 +2,11 @@ use tauri::State;
 
 use crate::{
     db,
-    models::{FavoriteToggleResponse, HealthCheckResponse, ProjectDetail, ProjectFilters, ProjectSummary},
+    models::{
+        FavoriteToggleResponse, HealthCheckResponse, ProjectDetail, ProjectFilters, ProjectSummary,
+        SyncDataResponse,
+    },
+    services::sync::SyncService,
     AppState,
 };
 
@@ -45,4 +49,11 @@ pub async fn toggle_favorite(
 #[tauri::command]
 pub async fn get_favorites(state: State<'_, AppState>) -> Result<Vec<ProjectSummary>, String> {
     db::list_favorites(&state.db_path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn sync_data(state: State<'_, AppState>) -> Result<SyncDataResponse, String> {
+    SyncService::run(&state.config, &state.db_path)
+        .await
+        .map_err(|error| error.to_string())
 }

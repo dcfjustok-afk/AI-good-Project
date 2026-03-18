@@ -67,6 +67,42 @@ pub struct FavoriteToggleResponse {
     pub is_favorite: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncDataResponse {
+    pub processed: usize,
+    pub inserted: usize,
+    pub updated: usize,
+    pub used_ai: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SyncedProject {
+    pub owner: String,
+    pub repo: String,
+    pub repo_name: String,
+    pub description: String,
+    pub github_url: String,
+    pub homepage_url: Option<String>,
+    pub demo_url: Option<String>,
+    pub language: Option<String>,
+    pub stars: i64,
+    pub forks: i64,
+    pub open_issues: i64,
+    pub topics: Vec<String>,
+    pub category: String,
+    pub score: i64,
+    pub license: Option<String>,
+    pub updated_at: String,
+    pub summary: String,
+    pub highlights: Vec<String>,
+    pub use_cases: Vec<String>,
+    pub frontend_value: String,
+    pub learning_cost: String,
+    pub frontend_relevance: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectFilters {

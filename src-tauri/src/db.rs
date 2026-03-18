@@ -4,7 +4,9 @@ use anyhow::{anyhow, Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use tauri::{AppHandle, Manager};
 
-use crate::models::{FavoriteToggleResponse, ProjectDetail, ProjectFilters, ProjectSummary};
+use crate::models::{
+    FavoriteToggleResponse, ProjectDetail, ProjectFilters, ProjectSummary, SyncedProject,
+};
 
 pub const DATABASE_FILE_NAME: &str = "ai-good-project.db";
 
@@ -222,6 +224,123 @@ pub fn toggle_favorite(db_path: &Path, project_id: i64) -> Result<FavoriteToggle
         project_id,
         is_favorite: !is_favorite,
     })
+}
+
+pub fn upsert_projects(db_path: &Path, projects: &[SyncedProject]) -> Result<(usize, usize)> {
+    let mut connection = open_connection(db_path)?;
+    let transaction = connection.transaction()?;
+    let mut inserted = 0;
+    let mut updated = 0;
+
+    for project in projects {
+        let existing_id = transaction
+            .query_row(
+                "SELECT id FROM projects WHERE repo_name = ?1 LIMIT 1",
+                params![project.repo_name],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+
+        let repo_id = if let Some(repo_id) = existing_id {
+            updated += 1;
+            transaction.execute(
+                r#"
+                UPDATE projects
+                SET description = ?2,
+                    github_url = ?3,
+                    homepage_url = ?4,
+                    demo_url = ?5,
+                    language = ?6,
+                    stars = ?7,
+                    forks = ?8,
+                    open_issues = ?9,
+                    topics = ?10,
+                    category = ?11,
+                    score = ?12,
+                    license = ?13,
+                    updated_at = ?14,
+                    synced_at = datetime('now')
+                WHERE id = ?1
+                "#,
+                params![
+                    repo_id,
+                    project.description,
+                    project.github_url,
+                    project.homepage_url,
+                    project.demo_url,
+                    project.language,
+                    project.stars,
+                    project.forks,
+                    project.open_issues,
+                    serde_json::to_string(&project.topics)?,
+                    project.category,
+                    project.score,
+                    project.license,
+                    project.updated_at,
+                ],
+            )?;
+            repo_id
+        } else {
+            inserted += 1;
+            transaction.execute(
+                r#"
+                INSERT INTO projects (
+                    repo_name, owner, name, description, github_url, homepage_url, demo_url,
+                    language, stars, forks, open_issues, topics, category, score, license,
+                    pushed_at, created_at, updated_at, synced_at, is_favorite
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, datetime('now'), ?16, datetime('now'), 0)
+                "#,
+                params![
+                    project.repo_name,
+                    project.owner,
+                    project.repo,
+                    project.description,
+                    project.github_url,
+                    project.homepage_url,
+                    project.demo_url,
+                    project.language,
+                    project.stars,
+                    project.forks,
+                    project.open_issues,
+                    serde_json::to_string(&project.topics)?,
+                    project.category,
+                    project.score,
+                    project.license,
+                    project.updated_at,
+                ],
+            )?;
+            transaction.last_insert_rowid()
+        };
+
+        transaction.execute(
+            r#"
+            INSERT INTO summaries (
+                repo_id, summary, highlights, use_cases, frontend_value,
+                learning_cost, frontend_relevance, generated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))
+            ON CONFLICT(repo_id) DO UPDATE SET
+                summary = excluded.summary,
+                highlights = excluded.highlights,
+                use_cases = excluded.use_cases,
+                frontend_value = excluded.frontend_value,
+                learning_cost = excluded.learning_cost,
+                frontend_relevance = excluded.frontend_relevance,
+                generated_at = datetime('now')
+            "#,
+            params![
+                repo_id,
+                project.summary,
+                serde_json::to_string(&project.highlights)?,
+                serde_json::to_string(&project.use_cases)?,
+                project.frontend_value,
+                project.learning_cost,
+                project.frontend_relevance,
+            ],
+        )?;
+    }
+
+    transaction.commit()?;
+    Ok((inserted, updated))
 }
 
 fn open_connection(db_path: &Path) -> Result<Connection> {
