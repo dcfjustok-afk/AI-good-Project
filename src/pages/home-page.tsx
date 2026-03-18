@@ -62,6 +62,7 @@ export function HomePage() {
       ? syncDataMutation.error.message
       : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
   const projects = projectsQuery.data ?? [];
+  const hasLocalCache = projects.length > 0;
   const cachedHintVisible = projectsQuery.isFetching && projects.length > 0;
   const availableLanguages = collectFacetOptions(facetsQuery.data, "language");
   const availableCategories = collectFacetOptions(facetsQuery.data, "category");
@@ -126,8 +127,21 @@ export function HomePage() {
           ) : null}
 
           {syncDataMutation.isError ? (
-            <div className="mt-4 rounded-2xl border border-red-300/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              同步失败。{syncErrorMessage}
+            <div
+              className={[
+                "mt-4 rounded-2xl px-4 py-3 text-sm",
+                hasLocalCache
+                  ? "border border-amber-300/40 bg-amber-500/10 text-amber-50"
+                  : "border border-red-300/40 bg-red-500/10 text-red-100",
+              ].join(" ")}
+            >
+              {hasLocalCache ? (
+                <>
+                  同步失败，已明确回退到本地缓存。当前仍可浏览 {projects.length} 条已落库项目。{syncErrorMessage}
+                </>
+              ) : (
+                <>同步失败，且当前没有可回退的本地缓存。{syncErrorMessage}</>
+              )}
             </div>
           ) : null}
         </div>
@@ -305,6 +319,12 @@ export function HomePage() {
         {projectsQuery.isError ? (
           <div className="rounded-[24px] border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-card">
             项目列表读取失败，请检查 Tauri 命令与数据库初始化状态。
+          </div>
+        ) : null}
+
+        {syncDataMutation.isError && hasLocalCache ? (
+          <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 shadow-card">
+            当前列表来自本地缓存而非最新同步结果。你仍可继续筛选、查看详情和收藏，待网络恢复后再重试同步即可。
           </div>
         ) : null}
 
