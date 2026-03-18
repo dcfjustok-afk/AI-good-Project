@@ -5,6 +5,7 @@ import { useProjects } from "../hooks/use-projects";
 import { useSyncData } from "../hooks/use-sync-data";
 import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 import { useProjectFiltersStore } from "../store/use-project-filters";
+import type { ProjectFilters, ProjectSummary } from "../types/project";
 
 const milestones = [
   {
@@ -25,12 +26,34 @@ const milestones = [
 ];
 
 export function HomePage() {
-  const { frontendOnly, toggleFrontendOnly } = useProjectFiltersStore();
-  const healthQuery = useAppHealth();
-  const projectsQuery = useProjects({
+  const {
+    language,
+    category,
     frontendOnly,
+    hasDemo,
+    sortBy,
+    limit,
+    setLanguage,
+    setCategory,
+    toggleFrontendOnly,
+    toggleHasDemo,
+    setSortBy,
+    setLimit,
+    resetFilters,
+  } = useProjectFiltersStore();
+  const healthQuery = useAppHealth();
+  const projectFilters: ProjectFilters = {
+    language: language || undefined,
+    category: category || undefined,
+    frontendOnly,
+    hasDemo,
+    sortBy,
+    limit,
+  };
+  const projectsQuery = useProjects(projectFilters);
+  const facetsQuery = useProjects({
     sortBy: "score",
-    limit: 12,
+    limit: 100,
   });
   const syncDataMutation = useSyncData();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -38,6 +61,10 @@ export function HomePage() {
     syncDataMutation.error instanceof Error
       ? syncDataMutation.error.message
       : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
+  const projects = projectsQuery.data ?? [];
+  const cachedHintVisible = projectsQuery.isFetching && projects.length > 0;
+  const availableLanguages = collectFacetOptions(facetsQuery.data, "language");
+  const availableCategories = collectFacetOptions(facetsQuery.data, "category");
 
   return (
     <div className="space-y-6">
@@ -73,6 +100,12 @@ export function HomePage() {
               {syncDataMutation.isPending ? "正在同步 GitHub 数据..." : "手动同步 GitHub 榜单"}
             </button>
           </div>
+
+          {cachedHintVisible ? (
+            <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/75">
+              正在后台刷新，当前优先展示上一次成功查询的本地缓存结果。
+            </div>
+          ) : null}
 
           {syncDataMutation.data ? (
             <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
@@ -158,11 +191,108 @@ export function HomePage() {
         ))}
       </section>
 
+      <section className="rounded-[28px] border border-white/80 bg-white/75 p-5 shadow-card backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">真实筛选</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">按语言、分类、Demo 和排序规则筛选本地榜单</h2>
+          </div>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="inline-flex w-fit items-center rounded-full border border-slate/15 bg-white px-4 py-2 text-sm font-medium text-slate transition hover:border-accent hover:text-accent"
+          >
+            重置筛选
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">语言</span>
+            <select
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="">全部语言</option>
+              {availableLanguages.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">分类</span>
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="">全部分类</option>
+              {availableCategories.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">排序</span>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as NonNullable<ProjectFilters["sortBy"]>)}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="score">综合推荐</option>
+              <option value="stars">Star 数</option>
+              <option value="updatedAt">最近更新</option>
+              <option value="frontendRelevance">前端相关度</option>
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">展示数量</span>
+            <select
+              value={String(limit)}
+              onChange={(event) => setLimit(Number(event.target.value))}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="12">12</option>
+              <option value="24">24</option>
+              <option value="48">48</option>
+            </select>
+          </label>
+
+          <div className="grid gap-3 text-sm text-slate/80 sm:grid-cols-2 md:grid-cols-1">
+            <button
+              type="button"
+              onClick={toggleFrontendOnly}
+              className={toggleClassName(frontendOnly)}
+            >
+              {frontendOnly ? "仅看前端相关：已开启" : "仅看前端相关：未开启"}
+            </button>
+            <button
+              type="button"
+              onClick={toggleHasDemo}
+              className={toggleClassName(hasDemo)}
+            >
+              {hasDemo ? "仅看带 Demo：已开启" : "仅看带 Demo：未开启"}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section className="space-y-4">
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-slate/60">本地榜单</p>
             <h2 className="mt-2 text-2xl font-semibold text-ink">本地 SQLite 已支持种子数据和手动同步结果</h2>
+          </div>
+          <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate/80 shadow-sm">
+            当前结果 {projects.length} 条
           </div>
         </div>
 
@@ -178,9 +308,9 @@ export function HomePage() {
           </div>
         ) : null}
 
-        {projectsQuery.data?.length ? (
+        {projects.length ? (
           <div className="grid gap-4 xl:grid-cols-2">
-            {projectsQuery.data.map((project) => (
+            {projects.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
@@ -191,12 +321,31 @@ export function HomePage() {
           </div>
         ) : null}
 
-        {projectsQuery.data && projectsQuery.data.length === 0 ? (
+        {projectsQuery.data && projects.length === 0 ? (
           <div className="rounded-[24px] border border-white/80 bg-white/80 p-6 text-sm text-slate/80 shadow-card">
-            当前筛选条件下没有项目，后续接入真实同步后这里会展示数据库中的 GitHub 仓库列表。
+            当前筛选条件下没有项目。你可以放宽语言、分类或 Demo 条件，或者先触发一次同步。
           </div>
         ) : null}
       </section>
     </div>
   );
+}
+
+function collectFacetOptions(projects: ProjectSummary[] | undefined, key: "language" | "category") {
+  if (!projects?.length) {
+    return [];
+  }
+
+  return [...new Set(projects.map((project) => project[key]).filter(Boolean))].sort((left, right) =>
+    String(left).localeCompare(String(right), "zh-CN")
+  ) as string[];
+}
+
+function toggleClassName(active: boolean) {
+  return [
+    "rounded-2xl border px-4 py-3 text-left text-sm font-medium transition",
+    active
+      ? "border-accent/30 bg-accent/10 text-accent"
+      : "border-slate/15 bg-white text-slate hover:border-accent hover:text-accent",
+  ].join(" ");
 }

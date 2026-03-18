@@ -21,6 +21,34 @@ function getFrontendFitLabel(frontendRelevance: number) {
   return "偏后端视角";
 }
 
+function formatRelativeDate(value: string) {
+  const timestamp = Date.parse(value);
+
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+
+  const diff = Date.now() - timestamp;
+  const day = 24 * 60 * 60 * 1000;
+
+  if (diff < day) {
+    return "今天";
+  }
+
+  if (diff < day * 2) {
+    return "1 天前";
+  }
+
+  if (diff < day * 30) {
+    return `${Math.floor(diff / day)} 天前`;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date(timestamp));
+}
+
 export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = false }: ProjectCardProps) {
   return (
     <article className="group rounded-[24px] border border-white/80 bg-white/85 p-5 shadow-card transition hover:-translate-y-1 hover:shadow-2xl">
@@ -78,7 +106,7 @@ export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = fa
       </div>
 
       <div className="mt-6 flex items-center justify-between border-t border-slate/10 pt-4 text-sm">
-        <span className="text-slate/70">最近更新 {project.updatedAt}</span>
+        <span className="text-slate/70">最近更新 {formatRelativeDate(project.updatedAt)}</span>
         <Link
           to={`/projects/${project.owner}/${project.repo}`}
           className="inline-flex items-center gap-1.5 font-medium text-ink transition group-hover:text-accent"

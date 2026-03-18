@@ -26,7 +26,7 @@ export function AppLayout() {
                 </span>
               </Link>
               <p className="max-w-2xl text-sm text-slate/80 sm:text-base">
-                Phase 0 已完成应用骨架、路由与运行时配置接入，后续阶段将在此基础上接入 SQLite、GitHub 抓取与 AI 摘要能力。
+                本地数据、手动同步、详情与收藏闭环已经接通；当前界面重点补齐真实筛选、排序和缓存优先展示。
               </p>
             </div>
 

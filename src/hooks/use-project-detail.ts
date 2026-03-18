@@ -11,5 +11,6 @@ export function useProjectDetail(owner?: string, repo?: string) {
         owner,
         repo,
       }),
+    placeholderData: (previousData) => previousData,
   });
 }

@@ -6,5 +6,6 @@ export function useProjects(filters: ProjectFilters) {
   return useQuery({
     queryKey: ["projects", filters],
     queryFn: () => invokeCommand<ProjectSummary[]>("get_projects", { filters }),
+    placeholderData: (previousData) => previousData,
   });
 }

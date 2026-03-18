@@ -6,5 +6,6 @@ export function useAppHealth() {
   return useQuery({
     queryKey: ["app-health"],
     queryFn: () => invokeCommand<HealthCheckResponse>("health_check"),
+    placeholderData: (previousData) => previousData,
   });
 }

@@ -14,7 +14,7 @@ export type ProjectFilters = {
   frontendOnly?: boolean;
   favoritesOnly?: boolean;
   hasDemo?: boolean;
-  sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance";
+  sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance" | "favoritedAt";
   limit?: number;
 };
 
@@ -34,6 +34,7 @@ export type ProjectSummary = {
   demoUrl: string | null;
   frontendRelevance: number;
   isFavorite: boolean;
+  favoriteCreatedAt: string | null;
 };
 
 export type ProjectDetail = {

@@ -26,6 +26,10 @@ export function ProjectDetailPage() {
           <p className="text-sm text-slate/80">正在读取项目详情...</p>
         ) : null}
 
+        {detailQuery.isFetching && detail ? (
+          <p className="text-sm text-slate/70">正在后台刷新，当前优先展示上一次读取到的详情缓存。</p>
+        ) : null}
+
         {detailQuery.isError ? (
           <p className="text-sm text-red-700">详情读取失败，请确认数据库中存在该项目。</p>
         ) : null}

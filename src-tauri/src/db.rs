@@ -58,6 +58,7 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<Proj
         Some("stars") => "p.stars DESC, p.updated_at DESC",
         Some("updatedAt") => "p.updated_at DESC, p.stars DESC",
         Some("frontendRelevance") => "COALESCE(s.frontend_relevance, 0) DESC, p.stars DESC",
+        Some("favoritedAt") => "COALESCE(f.created_at, '') DESC, p.updated_at DESC",
         _ => "p.score DESC, p.stars DESC, p.updated_at DESC",
     };
 
@@ -78,7 +79,8 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<Proj
             COALESCE(s.summary, p.description) AS summary,
             p.topics,
             p.demo_url,
-            CASE WHEN f.repo_id IS NULL THEN 0 ELSE 1 END AS is_favorite
+            CASE WHEN f.repo_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
+            f.created_at AS favorite_created_at
         FROM projects p
         LEFT JOIN summaries s ON s.repo_id = p.id
         LEFT JOIN favorites f ON f.repo_id = p.id
@@ -114,7 +116,7 @@ pub fn list_favorites(db_path: &Path) -> Result<Vec<ProjectSummary>> {
         db_path,
         ProjectFilters {
             favorites_only: Some(true),
-            sort_by: Some("updatedAt".to_string()),
+            sort_by: Some("favoritedAt".to_string()),
             limit: Some(50),
             ..ProjectFilters::default()
         },
@@ -581,6 +583,7 @@ fn map_project_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProjectSumma
         topics: parse_json_vec(&row.get::<_, String>(12)?),
         demo_url: row.get(13)?,
         is_favorite: row.get::<_, i64>(14)? == 1,
+        favorite_created_at: row.get(15)?,
     })
 }
 

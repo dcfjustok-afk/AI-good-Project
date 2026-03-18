@@ -32,6 +32,7 @@ pub struct ProjectSummary {
     pub topics: Vec<String>,
     pub demo_url: Option<String>,
     pub is_favorite: bool,
+    pub favorite_created_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
