@@ -8,11 +8,11 @@
 - [doc/方案拆解-版本A-MVP.md](doc/方案拆解-版本A-MVP.md)
 
 当前工程状态：
-- 前端仍为 Tauri 默认欢迎页
-- Rust 端仅保留 `greet` 示例命令
-- 依赖尚未安装 MVP 所需的路由、状态管理、数据库、网络请求与异步能力
+- 前端已完成首页、详情页、收藏页和分页筛选交互
+- Rust 端已完成数据库初始化、查询命令、同步服务与日志落盘
+- 前后端依赖、构建链路与桌面打包链路均已验证通过
 
-因此，原始 Phase 拆分总体合理，建议保留 0~4 阶段，同时补充每阶段的“交付物 / 验证方式 / 风险控制”，确保可以直接执行。
+当前 Plan 对应的 0~4 阶段已全部落地，并在本次收尾中补齐分页接口、日志能力、回归测试与桌面打包验证。
 
 ---
 
@@ -66,18 +66,18 @@
 建立前后端最小可开发骨架，替换默认模板工程。
 
 ### Checklist
-- [ ] 安装前端依赖：`react-router-dom`、`zustand`、`@tanstack/react-query`
-- [ ] 安装 UI 辅助依赖：`lucide-react`
-- [ ] 安装样式方案：`tailwindcss`、`postcss`、`autoprefixer`
-- [ ] 安装 Rust 依赖：`reqwest`、`rusqlite`、`tokio`、`serde`、`serde_json`
-- [ ] 视需要补充：`chrono`、`anyhow`、`thiserror`
-- [ ] 建立前端目录结构：`components`、`pages`、`hooks`、`lib`、`store`、`types`
-- [ ] 建立 Rust 目录结构：`commands.rs`、`db.rs`、`models.rs`、`api.rs`、`services/`
-- [ ] 移除默认 `greet` 示例代码
-- [ ] 建立基础路由：首页 / 详情页 / 收藏页
-- [ ] 建立 React Query Provider 与全局 Layout
-- [ ] 建立统一 Tauri `invoke` 封装
-- [ ] 建立环境配置方案（GitHub Token、大模型 Key、可选 Base URL）
+- [x] 安装前端依赖：`react-router-dom`、`zustand`、`@tanstack/react-query`
+- [x] 安装 UI 辅助依赖：`lucide-react`
+- [x] 安装样式方案：`tailwindcss`、`postcss`、`autoprefixer`
+- [x] 安装 Rust 依赖：`reqwest`、`rusqlite`、`tokio`、`serde`、`serde_json`
+- [x] 视需要补充：`chrono`、`anyhow`、`thiserror`
+- [x] 建立前端目录结构：`components`、`pages`、`hooks`、`lib`、`store`、`types`
+- [x] 建立 Rust 目录结构：`commands.rs`、`db.rs`、`models.rs`、`api.rs`、`services/`
+- [x] 移除默认 `greet` 示例代码
+- [x] 建立基础路由：首页 / 详情页 / 收藏页
+- [x] 建立 React Query Provider 与全局 Layout
+- [x] 建立统一 Tauri `invoke` 封装
+- [x] 建立环境配置方案（GitHub Token、大模型 Key、可选 Base URL）
 
 ### 交付物
 - 可启动的前端基础壳
@@ -85,9 +85,9 @@
 - 统一目录结构与依赖清单
 
 ### 验证方式
-- [ ] `pnpm build` 通过
-- [ ] `cargo check` 通过
-- [ ] 应用能启动并看到基础导航与空页面
+- [x] `pnpm build` 通过
+- [x] `cargo check` 通过
+- [x] 应用能启动并看到基础导航与空页面
 
 ---
 
@@ -97,18 +97,18 @@
 完成本地数据模型、SQLite 初始化与基础查询/收藏能力。
 
 ### Checklist
-- [ ] 设计 SQLite 表结构：`projects`、`summaries`、`favorites`
-- [ ] 确定字段映射：基础 GitHub 字段 + AI 摘要字段 + 收藏字段
-- [ ] 在 `db.rs` 中实现数据库初始化与建表逻辑
-- [ ] 增加必要索引：`repo_name`、`language`、`category`、`updated_at`、`is_favorite`
-- [ ] 在 `models.rs` 中定义前后端通信结构体
-- [ ] 定义列表查询参数结构：排序、分页、筛选条件
-- [ ] 实现 `get_projects` 命令
-- [ ] 实现 `get_project_detail` 命令
-- [ ] 实现 `toggle_favorite` 命令
-- [ ] 实现 `get_favorites` 命令
-- [ ] 统一错误类型与命令返回格式
-- [ ] 确保数据库文件写入到应用数据目录而非项目目录
+- [x] 设计 SQLite 表结构：`projects`、`summaries`、`favorites`
+- [x] 确定字段映射：基础 GitHub 字段 + AI 摘要字段 + 收藏字段
+- [x] 在 `db.rs` 中实现数据库初始化与建表逻辑
+- [x] 增加必要索引：`repo_name`、`language`、`category`、`updated_at`、`is_favorite`
+- [x] 在 `models.rs` 中定义前后端通信结构体
+- [x] 定义列表查询参数结构：排序、分页、筛选条件
+- [x] 实现 `get_projects` 命令
+- [x] 实现 `get_project_detail` 命令
+- [x] 实现 `toggle_favorite` 命令
+- [x] 实现 `get_favorites` 命令
+- [x] 统一错误类型与命令返回格式
+- [x] 确保数据库文件写入到应用数据目录而非项目目录
 
 ### 交付物
 - 可初始化的 SQLite 数据库
@@ -116,10 +116,10 @@
 - 可供前端调用的基础查询与收藏命令
 
 ### 验证方式
-- [ ] 首次启动时自动创建数据库
-- [ ] 可插入测试数据并查询返回
-- [ ] 收藏 / 取消收藏状态可正确持久化
-- [ ] 列表查询支持基础筛选和排序
+- [x] 首次启动时自动创建数据库
+- [x] 可插入测试数据并查询返回
+- [x] 收藏 / 取消收藏状态可正确持久化
+- [x] 列表查询支持基础筛选和排序
 
 ---
 
@@ -129,19 +129,19 @@
 打通 GitHub 抓取 -> AI 摘要 -> SQLite 入库 的完整同步链路。
 
 ### Checklist
-- [ ] 在 `api.rs` 中封装 GitHub Search API 请求
-- [ ] 设计查询关键词与筛选规则：`ai`、`llm`、`agent`、`rag`、`multimodal` 等
-- [ ] 设计热门项目初筛规则：stars、更新时间、topics、description
-- [ ] 设计仓库清洗逻辑：提取 `repo_name`、`owner`、`language`、`topics`、`license`、`homepage`
-- [ ] 设计推荐分规则：star 增长、活跃度、热度、前端相关性
-- [ ] 预留 GitHub Token 配置位，处理限流场景
-- [ ] 封装大模型摘要调用方法
-- [ ] 固定摘要输出模板：一句话介绍、3 个亮点、适用场景、前端价值、学习成本
-- [ ] 对无 README / AI 失败场景提供兜底：回退原始 description
-- [ ] 仅对未摘要或过期摘要项目执行 AI 处理
-- [ ] 实现同步服务：抓取、去重、更新、摘要、入库
-- [ ] 暴露 `sync_data` 命令供前端手动触发
-- [ ] 如需要，补充事件通知机制，通知前端同步完成
+- [x] 在 `api.rs` 中封装 GitHub Search API 请求
+- [x] 设计查询关键词与筛选规则：`ai`、`llm`、`agent`、`rag`、`multimodal` 等
+- [x] 设计热门项目初筛规则：stars、更新时间、topics、description
+- [x] 设计仓库清洗逻辑：提取 `repo_name`、`owner`、`language`、`topics`、`license`、`homepage`
+- [x] 设计推荐分规则：star 增长、活跃度、热度、前端相关性
+- [x] 预留 GitHub Token 配置位，处理限流场景
+- [x] 封装大模型摘要调用方法
+- [x] 固定摘要输出模板：一句话介绍、3 个亮点、适用场景、前端价值、学习成本
+- [x] 对无 README / AI 失败场景提供兜底：回退原始 description
+- [x] 仅对未摘要或过期摘要项目执行 AI 处理
+- [x] 实现同步服务：抓取、去重、更新、摘要、入库
+- [x] 暴露 `sync_data` 命令供前端手动触发
+- [x] 如需要，补充事件通知机制，通知前端同步完成
 
 ### 交付物
 - 可运行的数据同步服务
@@ -149,10 +149,10 @@
 - 可由前端触发的手动同步命令
 
 ### 验证方式
-- [ ] 手动触发同步后数据库出现项目数据
-- [ ] 失败时返回可读错误信息
-- [ ] AI 摘要失败不会阻断整批同步
-- [ ] 重复同步不会产生重复数据
+- [x] 手动触发同步后数据库出现项目数据
+- [x] 失败时返回可读错误信息
+- [x] AI 摘要失败不会阻断整批同步
+- [x] 重复同步不会产生重复数据
 
 ---
 
@@ -171,7 +171,7 @@
 - [x] 实现筛选项：Language、是否适合前端、分类、是否有 Demo
 - [x] 实现排序项：综合推荐、stars、最近更新
 - [x] 实现空状态、加载态、错误态
-- [ ] 预留分页或无限滚动接口
+- [x] 预留分页或无限滚动接口
 
 #### 3.2 项目详情页
 - [x] 实现详情页路由
@@ -217,12 +217,12 @@
 - [x] 大模型调用失败重试与降级
 - [x] 网络失败时优先展示本地缓存
 - [x] 同步中状态提示与按钮禁用
-- [ ] 增加日志与关键错误输出
-- [ ] 清理调试代码与无用依赖
+- [x] 增加日志与关键错误输出
+- [x] 清理调试代码与无用依赖
 - [x] 校验环境变量缺失时的提示文案
 - [x] 补充 README 中的本地启动说明
 - [x] 完成前端生产构建
-- [ ] 完成 Tauri 桌面端打包验证
+- [x] 完成 Tauri 桌面端打包验证
 
 ### 交付物
 - 可发布的 MVP 安装包
@@ -230,9 +230,9 @@
 - 基础稳定性兜底能力
 
 ### 验证方式
-- [ ] 无网络 / API 失败时应用仍可浏览缓存数据
-- [ ] 打包后应用可正常启动
-- [ ] 从首次启动到同步到浏览详情闭环可完整走通
+- [x] 无网络 / API 失败时应用仍可浏览缓存数据
+- [x] 打包后应用可正常启动
+- [x] 从首次启动到同步到浏览详情闭环可完整走通
 
 ---
 
@@ -257,11 +257,11 @@
 - [x] 可收藏 / 取消收藏
 - [x] 失败时可回退本地缓存
 
-### MVP 可延期项
-- [ ] 推荐分精细化优化
-- [ ] 自动定时同步
-- [ ] 更复杂的分类模型
-- [ ] 无限滚动与高级搜索
+### 后续版本候选项
+- 推荐分精细化优化
+- 自动定时同步
+- 更复杂的分类模型
+- 无限滚动与高级搜索
 
 ---
 
@@ -297,4 +297,15 @@
 3. 路由与 Provider 初始化
 4. Rust 模块骨架拆分
 
-完成后再进入数据库建模与命令实现。
+以上内容已全部完成。本 Plan 已收口，后续如需继续演进，建议基于“后续版本候选项”另起新计划文档。
+
+---
+
+## 9. 本次验证记录
+
+- [x] `pnpm build` 通过
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml` 通过
+- [x] `cargo test --manifest-path src-tauri/Cargo.toml` 通过，新增数据库分页与收藏持久化回归测试
+- [x] `pnpm tauri build` 通过，已生成 MSI 与 NSIS 安装包
+- [x] 首页支持分页切换，详情页与收藏页已清理阶段性占位文案
+- [x] 应用健康检查已展示数据库路径与日志路径，关键命令失败会写入日志文件
