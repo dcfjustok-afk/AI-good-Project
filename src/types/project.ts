@@ -4,6 +4,7 @@ export type HealthCheckResponse = {
   baseUrl: string;
   model: string;
   databasePath: string;
+  logPath: string;
   githubTokenConfigured: boolean;
   minimaxApiKeyConfigured: boolean;
 };
@@ -15,7 +16,16 @@ export type ProjectFilters = {
   favoritesOnly?: boolean;
   hasDemo?: boolean;
   sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance" | "favoritedAt";
+  page?: number;
   limit?: number;
+};
+
+export type ProjectListResponse = {
+  items: ProjectSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
 };
 
 export type ProjectSummary = {

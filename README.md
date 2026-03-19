@@ -9,6 +9,8 @@
 - 已配置 MiniMax Key 时生成 AI 结构化摘要
 - 未配置 MiniMax 或单仓库摘要失败时自动回退到规则摘要
 - GitHub 请求支持重试与部分失败继续写库
+- 列表支持分页、筛选、排序和收藏状态切换
+- 应用日志会落盘到系统应用数据目录，便于排查同步与数据库错误
 
 ## 本地运行
 
@@ -42,6 +44,8 @@ pnpm tauri dev
 ```bash
 pnpm build
 cd src-tauri && cargo check
+cd src-tauri && cargo test
+pnpm tauri build
 ```
 
 ## 同步兜底说明
@@ -55,3 +59,8 @@ cd src-tauri && cargo check
 - VS Code
 - Tauri 扩展
 - rust-analyzer
+
+## 产物与日志
+
+- Windows 打包产物默认位于 src-tauri/target/release/bundle/msi 和 src-tauri/target/release/bundle/nsis
+- 应用运行日志默认位于系统应用数据目录下的 logs/ai-good-project.log

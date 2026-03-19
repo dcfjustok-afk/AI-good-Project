@@ -39,7 +39,7 @@ export function ProjectDetailPage() {
             <p className="text-sm uppercase tracking-[0.28em] text-slate/60">项目详情</p>
             <h1 className="mt-2 text-3xl font-semibold text-ink">{detail?.repoName || projectName}</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate/80 sm:text-base">
-              {detail?.summary || "Phase 1 已接入本地详情查询，Phase 2 会继续把真实 GitHub 数据与 AI 摘要写进这里。"}
+              {detail?.summary || "当前项目暂无摘要内容，可先返回首页触发一次同步。"}
             </p>
           </div>
 
@@ -76,14 +76,14 @@ export function ProjectDetailPage() {
           <section className="rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">结构化摘要</h2>
             <ul className="mt-3 space-y-3 text-sm leading-6 text-slate/80">
-              {(detail?.highlights || ["等待同步链路接入后写入亮点摘要"]).map((item) => (
+              {(detail?.highlights || ["当前仓库暂无亮点摘要，可在下一次同步后补齐"]).map((item) => (
                 <li key={item}>• {item}</li>
               ))}
             </ul>
 
             <div className="mt-5 rounded-2xl bg-white/70 p-4 text-sm text-slate/80">
               <p className="font-medium text-ink">前端价值</p>
-              <p className="mt-2">{detail?.frontendValue || "后续会由 AI 摘要生成模块补充前端价值判断。"}</p>
+              <p className="mt-2">{detail?.frontendValue || "当前未生成前端价值判断，可在同步后重试查看。"}</p>
             </div>
           </section>
 

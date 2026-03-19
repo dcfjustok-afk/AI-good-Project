@@ -11,7 +11,6 @@ use crate::{config::AppConfig, models::SyncedProject};
 
 pub const DEFAULT_GITHUB_API_BASE_URL: &str = "https://api.github.com";
 pub const DEFAULT_MINIMAX_API_BASE_URL: &str = "https://api.minimaxi.com/v1";
-pub const DEFAULT_MINIMAX_ANTHROPIC_BASE_URL: &str = "https://api.minimaxi.com/anthropic";
 
 const SEARCH_KEYWORDS: [&str; 4] = ["ai agent", "llm", "rag", "open source ai"];
 const MAX_RETRIES: usize = 3;

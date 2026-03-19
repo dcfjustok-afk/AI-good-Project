@@ -2,9 +2,10 @@ use tauri::State;
 
 use crate::{
     db,
+    logging,
     models::{
-        FavoriteToggleResponse, HealthCheckResponse, ProjectDetail, ProjectFilters, ProjectSummary,
-        SyncDataResponse,
+        FavoriteToggleResponse, HealthCheckResponse, ProjectDetail, ProjectFilters,
+        ProjectListResponse, ProjectSummary, SyncDataResponse,
     },
     services::sync::SyncService,
     AppState,
@@ -22,6 +23,7 @@ pub async fn health_check(state: State<'_, AppState>) -> Result<HealthCheckRespo
         base_url: state.config.minimax_base_url.clone(),
         model: state.config.minimax_model.clone(),
         database_path: state.db_path.display().to_string(),
+        log_path: state.log_path.display().to_string(),
         github_token_configured: state.config.github_token.is_some(),
         minimax_api_key_configured: state.config.minimax_api_key.is_some(),
     })
@@ -31,8 +33,11 @@ pub async fn health_check(state: State<'_, AppState>) -> Result<HealthCheckRespo
 pub async fn get_projects(
     state: State<'_, AppState>,
     filters: Option<ProjectFilters>,
-) -> Result<Vec<ProjectSummary>, String> {
-    db::list_projects(&state.db_path, filters.unwrap_or_default()).map_err(|error| error.to_string())
+) -> Result<ProjectListResponse, String> {
+    db::list_projects(&state.db_path, filters.unwrap_or_default()).map_err(|error| {
+        logging::error(&state.log_path, "get_projects", &error.to_string());
+        error.to_string()
+    })
 }
 
 #[tauri::command]
@@ -41,7 +46,14 @@ pub async fn get_project_detail(
     owner: String,
     repo: String,
 ) -> Result<ProjectDetail, String> {
-    db::get_project_detail_by_repo(&state.db_path, &owner, &repo).map_err(|error| error.to_string())
+    db::get_project_detail_by_repo(&state.db_path, &owner, &repo).map_err(|error| {
+        logging::error(
+            &state.log_path,
+            "get_project_detail",
+            &format!("failed to load {owner}/{repo}: {error}"),
+        );
+        error.to_string()
+    })
 }
 
 #[tauri::command]
@@ -49,17 +61,32 @@ pub async fn toggle_favorite(
     state: State<'_, AppState>,
     project_id: i64,
 ) -> Result<FavoriteToggleResponse, String> {
-    db::toggle_favorite(&state.db_path, project_id).map_err(|error| error.to_string())
+    db::toggle_favorite(&state.db_path, project_id).map_err(|error| {
+        logging::error(
+            &state.log_path,
+            "toggle_favorite",
+            &format!("failed to toggle favorite for project {project_id}: {error}"),
+        );
+        error.to_string()
+    })
 }
 
 #[tauri::command]
 pub async fn get_favorites(state: State<'_, AppState>) -> Result<Vec<ProjectSummary>, String> {
-    db::list_favorites(&state.db_path).map_err(|error| error.to_string())
+    db::list_favorites(&state.db_path).map_err(|error| {
+        logging::error(&state.log_path, "get_favorites", &error.to_string());
+        error.to_string()
+    })
 }
 
 #[tauri::command]
 pub async fn sync_data(state: State<'_, AppState>) -> Result<SyncDataResponse, String> {
+    logging::info(&state.log_path, "sync_data", "manual sync requested from frontend");
+
     SyncService::run(&state.config, &state.db_path)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| {
+            logging::error(&state.log_path, "sync_data", &error.to_string());
+            error.to_string()
+        })
 }

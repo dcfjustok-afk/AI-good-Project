@@ -10,17 +10,17 @@ import type { ProjectFilters, ProjectSummary } from "../types/project";
 const milestones = [
   {
     title: "Rust 数据层",
-    description: "SQLite 初始化、模型定义和 Tauri 命令会在 Phase 1 接入。",
+    description: "SQLite 初始化、模型定义、分页查询与收藏命令已经接入。",
     icon: Database,
   },
   {
     title: "同步链路",
-    description: "GitHub 抓取与 MiniMax 摘要生成会在 Phase 2 接入。",
+    description: "GitHub 抓取、MiniMax 摘要、失败重试和规则回退已经打通。",
     icon: Server,
   },
   {
     title: "前端交互",
-    description: "真实筛选、详情页与收藏流会在 Phase 3 补全。",
+    description: "首页、详情、收藏、筛选和分页切换都已可用。",
     icon: RefreshCcw,
   },
 ];
@@ -32,12 +32,15 @@ export function HomePage() {
     frontendOnly,
     hasDemo,
     sortBy,
+    page,
     limit,
     setLanguage,
     setCategory,
     toggleFrontendOnly,
     toggleHasDemo,
     setSortBy,
+    previousPage,
+    nextPage,
     setLimit,
     resetFilters,
   } = useProjectFiltersStore();
@@ -48,11 +51,13 @@ export function HomePage() {
     frontendOnly,
     hasDemo,
     sortBy,
+    page,
     limit,
   };
   const projectsQuery = useProjects(projectFilters);
   const facetsQuery = useProjects({
     sortBy: "score",
+    page: 1,
     limit: 100,
   });
   const syncDataMutation = useSyncData();
@@ -61,11 +66,13 @@ export function HomePage() {
     syncDataMutation.error instanceof Error
       ? syncDataMutation.error.message
       : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
-  const projects = projectsQuery.data ?? [];
+  const projects = projectsQuery.data?.items ?? [];
   const hasLocalCache = projects.length > 0;
   const cachedHintVisible = projectsQuery.isFetching && projects.length > 0;
-  const availableLanguages = collectFacetOptions(facetsQuery.data, "language");
-  const availableCategories = collectFacetOptions(facetsQuery.data, "category");
+  const availableLanguages = collectFacetOptions(facetsQuery.data?.items, "language");
+  const availableCategories = collectFacetOptions(facetsQuery.data?.items, "category");
+  const total = projectsQuery.data?.total ?? 0;
+  const hasMore = projectsQuery.data?.hasMore ?? false;
 
   return (
     <div className="space-y-6">
@@ -185,6 +192,10 @@ export function HomePage() {
             <div>
               <dt className="font-medium text-ink">数据库位置</dt>
               <dd className="mt-1 break-all text-xs">{healthQuery.data?.databasePath || "初始化中"}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">日志位置</dt>
+              <dd className="mt-1 break-all text-xs">{healthQuery.data?.logPath || "初始化中"}</dd>
             </div>
           </dl>
         </div>
@@ -306,7 +317,7 @@ export function HomePage() {
             <h2 className="mt-2 text-2xl font-semibold text-ink">本地 SQLite 已支持种子数据和手动同步结果</h2>
           </div>
           <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate/80 shadow-sm">
-            当前结果 {projects.length} 条
+            第 {page} 页 / 共 {total} 条
           </div>
         </div>
 
@@ -329,16 +340,40 @@ export function HomePage() {
         ) : null}
 
         {projects.length ? (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onToggleFavorite={(projectId) => toggleFavoriteMutation.mutate(projectId)}
-                isTogglingFavorite={toggleFavoriteMutation.isPending}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onToggleFavorite={(projectId) => toggleFavoriteMutation.mutate(projectId)}
+                  isTogglingFavorite={toggleFavoriteMutation.isPending}
+                />
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-[24px] border border-white/80 bg-white/80 p-4 text-sm text-slate/80 shadow-card sm:flex-row sm:items-center sm:justify-between">
+              <p>分页接口已接入，当前按第 {page} 页读取，每页 {limit} 条。</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={previousPage}
+                  disabled={page <= 1}
+                  className="rounded-full border border-slate/15 bg-white px-4 py-2 font-medium text-slate transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  上一页
+                </button>
+                <button
+                  type="button"
+                  onClick={nextPage}
+                  disabled={!hasMore}
+                  className="rounded-full border border-slate/15 bg-white px-4 py-2 font-medium text-slate transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  下一页
+                </button>
+              </div>
+            </div>
+          </>
         ) : null}
 
         {projectsQuery.data && projects.length === 0 ? (

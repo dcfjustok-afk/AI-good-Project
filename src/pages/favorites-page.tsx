@@ -9,7 +9,7 @@ export function FavoritesPage() {
   const [sortBy, setSortBy] = useState<NonNullable<ProjectFilters["sortBy"]>>("favoritedAt");
   const favoritesQuery = useFavorites(sortBy);
   const toggleFavoriteMutation = useToggleFavorite();
-  const favorites = favoritesQuery.data ?? [];
+  const favorites = favoritesQuery.data?.items ?? [];
 
   return (
     <section className="space-y-5 rounded-[28px] border border-white/80 bg-white/80 p-6 shadow-card backdrop-blur">

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,8 +8,19 @@ pub struct HealthCheckResponse {
     pub base_url: String,
     pub model: String,
     pub database_path: String,
+    pub log_path: String,
     pub github_token_configured: bool,
     pub minimax_api_key_configured: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectListResponse {
+    pub items: Vec<ProjectSummary>,
+    pub total: usize,
+    pub page: u32,
+    pub page_size: u32,
+    pub has_more: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -119,5 +128,6 @@ pub struct ProjectFilters {
     pub favorites_only: Option<bool>,
     pub has_demo: Option<bool>,
     pub sort_by: Option<String>,
+    pub page: Option<u32>,
     pub limit: Option<u32>,
 }

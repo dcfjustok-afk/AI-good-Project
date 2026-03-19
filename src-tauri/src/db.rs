@@ -5,7 +5,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use tauri::{AppHandle, Manager};
 
 use crate::models::{
-    FavoriteToggleResponse, ProjectDetail, ProjectFilters, ProjectSummary, SyncedProject,
+    FavoriteToggleResponse, ProjectDetail, ProjectFilters, ProjectListResponse, ProjectSummary,
+    SyncedProject,
 };
 
 pub const DATABASE_FILE_NAME: &str = "ai-good-project.db";
@@ -50,9 +51,12 @@ pub fn initialize_schema(app: AppHandle) -> Result<PathBuf> {
     Ok(db_path)
 }
 
-pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<ProjectSummary>> {
+pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectListResponse> {
     let connection = open_connection(db_path)?;
-    let limit = i64::from(filters.limit.unwrap_or(20));
+    let limit = filters.limit.unwrap_or(20).max(1);
+    let page = filters.page.unwrap_or(1).max(1);
+    let page_size = i64::from(limit);
+    let offset = i64::from(page.saturating_sub(1)) * page_size;
 
     let sort_by = match filters.sort_by.as_deref() {
         Some("stars") => "p.stars DESC, p.updated_at DESC",
@@ -61,6 +65,37 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<Proj
         Some("favoritedAt") => "COALESCE(f.created_at, '') DESC, p.updated_at DESC",
         _ => "p.score DESC, p.stars DESC, p.updated_at DESC",
     };
+
+    let where_clause = r#"
+        WHERE (?1 IS NULL OR p.language = ?1)
+          AND (?2 IS NULL OR p.category = ?2)
+          AND (?3 = 0 OR COALESCE(s.frontend_relevance, 0) >= 2)
+          AND (?4 = 0 OR (p.demo_url IS NOT NULL AND p.demo_url <> ''))
+          AND (?5 = 0 OR f.repo_id IS NOT NULL)
+    "#;
+
+    let count_query = format!(
+        r#"
+        SELECT COUNT(*)
+        FROM projects p
+        LEFT JOIN summaries s ON s.repo_id = p.id
+        LEFT JOIN favorites f ON f.repo_id = p.id
+        {}
+        "#,
+        where_clause
+    );
+
+    let total: i64 = connection.query_row(
+        &count_query,
+        params![
+            filters.language.clone(),
+            filters.category.clone(),
+            bool_to_i64(filters.frontend_only.unwrap_or(false)),
+            bool_to_i64(filters.has_demo.unwrap_or(false)),
+            bool_to_i64(filters.favorites_only.unwrap_or(false)),
+        ],
+        |row| row.get(0),
+    )?;
 
     let query = format!(
         r#"
@@ -84,14 +119,11 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<Proj
         FROM projects p
         LEFT JOIN summaries s ON s.repo_id = p.id
         LEFT JOIN favorites f ON f.repo_id = p.id
-        WHERE (?1 IS NULL OR p.language = ?1)
-          AND (?2 IS NULL OR p.category = ?2)
-          AND (?3 = 0 OR COALESCE(s.frontend_relevance, 0) >= 2)
-          AND (?4 = 0 OR (p.demo_url IS NOT NULL AND p.demo_url <> ''))
-          AND (?5 = 0 OR f.repo_id IS NOT NULL)
+                {}
         ORDER BY {}
-        LIMIT ?6
+                LIMIT ?6 OFFSET ?7
         "#,
+                where_clause,
         sort_by
     );
 
@@ -103,16 +135,25 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<Vec<Proj
             bool_to_i64(filters.frontend_only.unwrap_or(false)),
             bool_to_i64(filters.has_demo.unwrap_or(false)),
             bool_to_i64(filters.favorites_only.unwrap_or(false)),
-            limit,
+            page_size,
+            offset,
         ],
         map_project_summary,
     )?;
 
-    rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+    let items = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok(ProjectListResponse {
+        has_more: offset + (items.len() as i64) < total,
+        items,
+        page,
+        page_size: limit,
+        total: total.max(0) as usize,
+    })
 }
 
 pub fn list_favorites(db_path: &Path) -> Result<Vec<ProjectSummary>> {
-    list_projects(
+    Ok(list_projects(
         db_path,
         ProjectFilters {
             favorites_only: Some(true),
@@ -120,7 +161,8 @@ pub fn list_favorites(db_path: &Path) -> Result<Vec<ProjectSummary>> {
             limit: Some(50),
             ..ProjectFilters::default()
         },
-    )
+    )?
+    .items)
 }
 
 pub fn get_project_detail_by_repo(db_path: &Path, owner: &str, repo: &str) -> Result<ProjectDetail> {
@@ -597,4 +639,124 @@ fn parse_json_vec(value: &str) -> Vec<String> {
 
 fn bool_to_i64(value: bool) -> i64 {
     if value { 1 } else { 0 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{ProjectFilters, SyncedProject};
+    use std::{env, time::{SystemTime, UNIX_EPOCH}};
+
+    fn test_db_path() -> PathBuf {
+        let file_name = format!(
+            "ai-good-project-test-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system time before unix epoch")
+                .as_nanos()
+        );
+
+        env::temp_dir().join(file_name)
+    }
+
+    fn sample_project(owner: &str, repo: &str, score: i64) -> SyncedProject {
+        SyncedProject {
+            owner: owner.to_string(),
+            repo: repo.to_string(),
+            repo_name: format!("{owner}/{repo}"),
+            description: format!("{repo} description"),
+            github_url: format!("https://github.com/{owner}/{repo}"),
+            homepage_url: Some(format!("https://{repo}.example.com")),
+            demo_url: Some(format!("https://demo.example.com/{repo}")),
+            language: Some("TypeScript".to_string()),
+            stars: score * 100,
+            forks: score * 10,
+            open_issues: 3,
+            topics: vec!["ai".to_string(), "frontend".to_string()],
+            category: "AI UI / Frontend".to_string(),
+            score,
+            license: Some("MIT".to_string()),
+            updated_at: "2026-03-19T10:00:00Z".to_string(),
+            summary: format!("summary for {repo}"),
+            highlights: vec!["highlight-a".to_string(), "highlight-b".to_string()],
+            use_cases: vec!["use-case-a".to_string()],
+            frontend_value: "high".to_string(),
+            learning_cost: "低".to_string(),
+            frontend_relevance: 3,
+        }
+    }
+
+    fn create_test_database() -> PathBuf {
+        let db_path = test_db_path();
+        let connection = open_connection(&db_path).expect("open test database");
+        create_schema(&connection).expect("create schema");
+        upsert_projects(
+            &db_path,
+            &[
+                sample_project("owner", "repo-one", 95),
+                sample_project("owner", "repo-two", 85),
+                sample_project("owner", "repo-three", 75),
+            ],
+        )
+        .expect("seed test projects");
+        db_path
+    }
+
+    #[test]
+    fn list_projects_supports_pagination() {
+        let db_path = create_test_database();
+
+        let page_one = list_projects(
+            &db_path,
+            ProjectFilters {
+                page: Some(1),
+                limit: Some(2),
+                ..ProjectFilters::default()
+            },
+        )
+        .expect("page one query should succeed");
+
+        assert_eq!(page_one.total, 3);
+        assert_eq!(page_one.items.len(), 2);
+        assert_eq!(page_one.page, 1);
+        assert!(page_one.has_more);
+
+        let page_two = list_projects(
+            &db_path,
+            ProjectFilters {
+                page: Some(2),
+                limit: Some(2),
+                ..ProjectFilters::default()
+            },
+        )
+        .expect("page two query should succeed");
+
+        assert_eq!(page_two.items.len(), 1);
+        assert!(!page_two.has_more);
+
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[test]
+    fn toggle_favorite_persists_and_is_queryable() {
+        let db_path = create_test_database();
+        let first_page = list_projects(&db_path, ProjectFilters::default()).expect("list projects");
+        let project_id = first_page.items.first().expect("first project").id;
+
+        let response = toggle_favorite(&db_path, project_id).expect("toggle favorite on");
+        assert!(response.is_favorite);
+
+        let favorites = list_favorites(&db_path).expect("list favorites");
+        assert_eq!(favorites.len(), 1);
+        assert_eq!(favorites[0].id, project_id);
+        assert!(favorites[0].is_favorite);
+
+        let response = toggle_favorite(&db_path, project_id).expect("toggle favorite off");
+        assert!(!response.is_favorite);
+
+        let favorites = list_favorites(&db_path).expect("list favorites after removal");
+        assert!(favorites.is_empty());
+
+        let _ = fs::remove_file(db_path);
+    }
 }
