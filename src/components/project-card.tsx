@@ -56,6 +56,9 @@ export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = fa
         <div>
           <p className="text-sm font-medium text-slate/70">{project.category}</p>
           <h2 className="mt-2 text-xl font-semibold text-ink">{project.repoName}</h2>
+          <p className="mt-2 text-xs font-medium uppercase tracking-[0.24em] text-slate/55">
+            推荐分 {project.score}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-pine/10 px-3 py-1 text-xs font-medium text-pine">

@@ -3,6 +3,8 @@ import { create } from "zustand";
 import type { ProjectFilters } from "../types/project";
 
 type ProjectFiltersState = {
+  search: string;
+  topic: string;
   language: string;
   category: string;
   frontendOnly: boolean;
@@ -10,6 +12,8 @@ type ProjectFiltersState = {
   sortBy: NonNullable<ProjectFilters["sortBy"]>;
   page: number;
   limit: number;
+  setSearch: (search: string) => void;
+  setTopic: (topic: string) => void;
   setLanguage: (language: string) => void;
   setCategory: (category: string) => void;
   toggleFrontendOnly: () => void;
@@ -22,6 +26,8 @@ type ProjectFiltersState = {
 };
 
 const defaultFilters = {
+  search: "",
+  topic: "",
   language: "",
   category: "",
   frontendOnly: false,
@@ -33,6 +39,8 @@ const defaultFilters = {
 
 export const useProjectFiltersStore = create<ProjectFiltersState>((set) => ({
   ...defaultFilters,
+  setSearch: (search) => set({ search, page: 1 }),
+  setTopic: (topic) => set({ topic, page: 1 }),
   setLanguage: (language) => set({ language, page: 1 }),
   setCategory: (category) => set({ category, page: 1 }),
   toggleFrontendOnly: () =>

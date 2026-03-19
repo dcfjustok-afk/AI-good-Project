@@ -1,10 +1,13 @@
-import { CheckCircle2, Database, RefreshCcw, Server } from "lucide-react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
+import { CheckCircle2, Database, RefreshCcw, Search, Server, TimerReset } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
 import { useAppHealth } from "../hooks/use-app-health";
+import { useInfiniteProjects } from "../hooks/use-infinite-projects";
 import { useProjects } from "../hooks/use-projects";
 import { useSyncData } from "../hooks/use-sync-data";
 import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 import { useProjectFiltersStore } from "../store/use-project-filters";
+import { useSyncPreferencesStore } from "../store/use-sync-preferences";
 import type { ProjectFilters, ProjectSummary } from "../types/project";
 
 const milestones = [
@@ -27,63 +30,99 @@ const milestones = [
 
 export function HomePage() {
   const {
+    search,
+    topic,
     language,
     category,
     frontendOnly,
     hasDemo,
     sortBy,
-    page,
     limit,
+    setSearch,
+    setTopic,
     setLanguage,
     setCategory,
     toggleFrontendOnly,
     toggleHasDemo,
     setSortBy,
-    previousPage,
-    nextPage,
     setLimit,
     resetFilters,
   } = useProjectFiltersStore();
+  const autoSyncEnabled = useSyncPreferencesStore((state) => state.autoSyncEnabled);
+  const intervalMinutes = useSyncPreferencesStore((state) => state.intervalMinutes);
+  const lastCompletedAt = useSyncPreferencesStore((state) => state.lastCompletedAt);
+  const setAutoSyncEnabled = useSyncPreferencesStore((state) => state.setAutoSyncEnabled);
+  const setIntervalMinutes = useSyncPreferencesStore((state) => state.setIntervalMinutes);
   const healthQuery = useAppHealth();
-  const projectFilters: ProjectFilters = {
+  const deferredSearch = useDeferredValue(search);
+  const projectFilters: Omit<ProjectFilters, "page"> = {
+    search: deferredSearch || undefined,
+    topic: topic || undefined,
     language: language || undefined,
     category: category || undefined,
     frontendOnly,
     hasDemo,
     sortBy,
-    page,
     limit,
   };
-  const projectsQuery = useProjects(projectFilters);
+  const projectsQuery = useInfiniteProjects(projectFilters);
   const facetsQuery = useProjects({
     sortBy: "score",
     page: 1,
-    limit: 100,
+    limit: 120,
   });
   const syncDataMutation = useSyncData();
   const toggleFavoriteMutation = useToggleFavorite();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const syncErrorMessage =
     syncDataMutation.error instanceof Error
       ? syncDataMutation.error.message
       : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
-  const projects = projectsQuery.data?.items ?? [];
+  const pages = projectsQuery.data?.pages ?? [];
+  const projects = useMemo(
+    () => pages.flatMap((pageData) => pageData.items),
+    [pages],
+  );
   const hasLocalCache = projects.length > 0;
-  const cachedHintVisible = projectsQuery.isFetching && projects.length > 0;
+  const cachedHintVisible = projectsQuery.isFetching && !projectsQuery.isFetchingNextPage && projects.length > 0;
   const availableLanguages = collectFacetOptions(facetsQuery.data?.items, "language");
   const availableCategories = collectFacetOptions(facetsQuery.data?.items, "category");
-  const total = projectsQuery.data?.total ?? 0;
-  const hasMore = projectsQuery.data?.hasMore ?? false;
+  const availableTopics = collectTopicOptions(facetsQuery.data?.items);
+  const latestPage = pages[pages.length - 1];
+  const total = latestPage?.total ?? 0;
+  const hasMore = Boolean(projectsQuery.hasNextPage);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && hasMore && !projectsQuery.isFetchingNextPage) {
+          void projectsQuery.fetchNextPage();
+        }
+      },
+      {
+        rootMargin: "220px 0px",
+      },
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, projectsQuery]);
 
   return (
     <div className="space-y-6">
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
         <div className="rounded-[32px] bg-ink px-6 py-8 text-white shadow-card sm:px-8">
-          <p className="text-sm uppercase tracking-[0.3em] text-white/60">MVP Phase 2</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-white/60">Next Iteration</p>
           <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">
-            本地数据闭环已经打通，现在可以手动同步 GitHub AI 项目并把摘要写回 SQLite。
+            现在不仅能手动同步，还能自动定时拉取、做高级搜索，并以无限加载方式浏览 AI 开源项目榜单。
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">
-            如果本地配置了 MiniMax API Key，同步时会直接调用兼容 OpenAI 的接口生成结构化摘要；否则自动回退到规则摘要，保证链路可用。
+            推荐分已经加入活跃度、主题、语言和 Demo 信号，更细分类会在同步时自动归一；如果本地配置了 MiniMax API Key，则继续生成结构化摘要，否则自动回退规则摘要。
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -107,6 +146,59 @@ export function HomePage() {
             >
               {syncDataMutation.isPending ? "正在同步 GitHub 数据..." : "手动同步 GitHub 榜单"}
             </button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+              <span className="flex items-center gap-2 font-medium text-white">
+                <TimerReset className="h-4 w-4" />
+                自动同步
+              </span>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <select
+                  value={String(intervalMinutes)}
+                  onChange={(event) => setIntervalMinutes(Number(event.target.value))}
+                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none"
+                >
+                  <option value="15">每 15 分钟</option>
+                  <option value="30">每 30 分钟</option>
+                  <option value="60">每 60 分钟</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                  className={[
+                    "rounded-full border px-4 py-2 text-sm font-medium transition",
+                    autoSyncEnabled
+                      ? "border-white/30 bg-white text-ink"
+                      : "border-white/20 bg-white/10 text-white/80 hover:bg-white/20",
+                  ].join(" ")}
+                >
+                  {autoSyncEnabled ? "已开启" : "未开启"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-white/65">
+                {lastCompletedAt
+                  ? `最近一次自动同步：${formatDateTime(lastCompletedAt)}`
+                  : "自动同步开启后，会在后台定时刷新本地榜单。"}
+              </p>
+            </label>
+
+            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+              <span className="flex items-center gap-2 font-medium text-white">
+                <Search className="h-4 w-4" />
+                高级搜索
+              </span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索仓库名、描述、摘要或主题"
+                className="mt-3 w-full rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/45"
+              />
+              <p className="mt-2 text-xs text-white/65">
+                支持按关键字检索 repo 名、描述、摘要与 topics。
+              </p>
+            </label>
           </div>
 
           {cachedHintVisible ? (
@@ -197,6 +289,18 @@ export function HomePage() {
               <dt className="font-medium text-ink">日志位置</dt>
               <dd className="mt-1 break-all text-xs">{healthQuery.data?.logPath || "初始化中"}</dd>
             </div>
+            <div>
+              <dt className="font-medium text-ink">项目数量</dt>
+              <dd className="mt-1">{healthQuery.data?.projectCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">收藏数量</dt>
+              <dd className="mt-1">{healthQuery.data?.favoriteCount ?? 0}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-ink">最近同步</dt>
+              <dd className="mt-1">{healthQuery.data?.lastSyncedAt ? formatDateTime(healthQuery.data.lastSyncedAt) : "尚未同步"}</dd>
+            </div>
           </dl>
         </div>
       </section>
@@ -265,6 +369,22 @@ export function HomePage() {
           </label>
 
           <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">主题</span>
+            <select
+              value={topic}
+              onChange={(event) => setTopic(event.target.value)}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="">全部主题</option>
+              {availableTopics.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-slate/80">
             <span className="font-medium text-ink">排序</span>
             <select
               value={sortBy}
@@ -314,10 +434,10 @@ export function HomePage() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-slate/60">本地榜单</p>
-            <h2 className="mt-2 text-2xl font-semibold text-ink">本地 SQLite 已支持种子数据和手动同步结果</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">本地 SQLite 已支持高级搜索、无限加载和精细推荐分</h2>
           </div>
           <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate/80 shadow-sm">
-            第 {page} 页 / 共 {total} 条
+            已加载 {projects.length} / {total} 条
           </div>
         </div>
 
@@ -353,26 +473,26 @@ export function HomePage() {
             </div>
 
             <div className="flex flex-col gap-3 rounded-[24px] border border-white/80 bg-white/80 p-4 text-sm text-slate/80 shadow-card sm:flex-row sm:items-center sm:justify-between">
-              <p>分页接口已接入，当前按第 {page} 页读取，每页 {limit} 条。</p>
+              <p>无限加载已启用，滚动到底部会继续读取下一批项目；当前每批 {limit} 条。</p>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={previousPage}
-                  disabled={page <= 1}
-                  className="rounded-full border border-slate/15 bg-white px-4 py-2 font-medium text-slate transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  上一页
-                </button>
-                <button
-                  type="button"
-                  onClick={nextPage}
+                  onClick={() => void projectsQuery.fetchNextPage()}
                   disabled={!hasMore}
                   className="rounded-full border border-slate/15 bg-white px-4 py-2 font-medium text-slate transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  下一页
+                  {hasMore ? "继续加载" : "已加载完毕"}
                 </button>
               </div>
             </div>
+
+            <div ref={sentinelRef} className="h-2" />
+
+            {projectsQuery.isFetchingNextPage ? (
+              <div className="rounded-[24px] border border-white/80 bg-white/80 p-4 text-sm text-slate/70 shadow-card">
+                正在加载更多项目...
+              </div>
+            ) : null}
           </>
         ) : null}
 
@@ -403,4 +523,28 @@ function toggleClassName(active: boolean) {
       ? "border-accent/30 bg-accent/10 text-accent"
       : "border-slate/15 bg-white text-slate hover:border-accent hover:text-accent",
   ].join(" ");
+}
+
+function collectTopicOptions(projects: ProjectSummary[] | undefined) {
+  if (!projects?.length) {
+    return [];
+  }
+
+  return [...new Set(projects.flatMap((project) => project.topics))].sort((left, right) =>
+    left.localeCompare(right, "zh-CN")
+  );
+}
+
+function formatDateTime(value: string) {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
 }

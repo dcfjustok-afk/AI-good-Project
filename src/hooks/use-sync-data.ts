@@ -9,8 +9,10 @@ export function useSyncData() {
     mutationFn: () => invokeCommand<SyncDataResponse>("sync_data"),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["projects"] });
+      void queryClient.invalidateQueries({ queryKey: ["projects-infinite"] });
       void queryClient.invalidateQueries({ queryKey: ["favorites"] });
       void queryClient.invalidateQueries({ queryKey: ["project-detail"] });
+      void queryClient.invalidateQueries({ queryKey: ["app-health"] });
     },
   });
 }

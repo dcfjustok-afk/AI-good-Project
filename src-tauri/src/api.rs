@@ -13,6 +13,13 @@ pub const DEFAULT_GITHUB_API_BASE_URL: &str = "https://api.github.com";
 pub const DEFAULT_MINIMAX_API_BASE_URL: &str = "https://api.minimaxi.com/v1";
 
 const SEARCH_KEYWORDS: [&str; 4] = ["ai agent", "llm", "rag", "open source ai"];
+const CATEGORY_AGENT: &str = "Agent Framework";
+const CATEGORY_RAG: &str = "RAG / Search";
+const CATEGORY_FRONTEND: &str = "AI UI / Frontend";
+const CATEGORY_WORKFLOW: &str = "Workflow Automation";
+const CATEGORY_MULTIMODAL: &str = "Speech / Multimodal";
+const CATEGORY_DEVTOOLS: &str = "Developer Tooling";
+const CATEGORY_LLM_APP: &str = "LLM Application";
 const MAX_RETRIES: usize = 3;
 
 pub struct FetchProjectsResult {
@@ -124,6 +131,9 @@ pub async fn fetch_trending_projects(config: &AppConfig) -> Result<FetchProjects
                 rule_based_summary(&repository)
             }
         };
+        let topics = repository.topics.clone().unwrap_or_default();
+        let category = normalize_category(&summary.category, &repository);
+        let score = calculate_score(&repository, summary.frontend_relevance);
 
         projects.push(SyncedProject {
             owner: repository.owner.login,
@@ -137,9 +147,9 @@ pub async fn fetch_trending_projects(config: &AppConfig) -> Result<FetchProjects
             stars: repository.stargazers_count,
             forks: repository.forks_count,
             open_issues: repository.open_issues_count,
-            topics: repository.topics.unwrap_or_default(),
-            category: summary.category,
-            score: calculate_score(repository.stargazers_count, repository.forks_count, summary.frontend_relevance),
+            topics,
+            category,
+            score,
             license: repository.license.and_then(|license| license.spdx_id.or(license.name)),
             updated_at: repository.updated_at,
             summary: summary.summary,
@@ -341,8 +351,39 @@ fn build_client(config: &AppConfig) -> Result<Client> {
         .context("failed to build HTTP client")
 }
 
-fn calculate_score(stars: i64, forks: i64, frontend_relevance: i64) -> i64 {
-    stars / 200 + forks / 100 + frontend_relevance * 10
+fn calculate_score(repository: &GitHubRepositoryItem, frontend_relevance: i64) -> i64 {
+    let topics = repository.topics.clone().unwrap_or_default();
+    let stars_score = (repository.stargazers_count / 250).min(400);
+    let forks_score = (repository.forks_count / 80).min(180);
+    let issue_penalty = (repository.open_issues_count / 30).min(20);
+    let recency_score = recency_score(&repository.updated_at);
+    let topic_score = topics
+        .iter()
+        .map(|topic| match topic.as_str() {
+            "agent" | "multi-agent" | "workflow" => 8,
+            "rag" | "retrieval" | "search" => 7,
+            "frontend" | "chat-ui" | "ui" => 7,
+            "multimodal" | "speech" | "voice" => 6,
+            _ => 3,
+        })
+        .sum::<i64>()
+        .min(28);
+    let language_score = match repository.language.as_deref() {
+        Some("TypeScript") | Some("JavaScript") => 16,
+        Some("Python") => 10,
+        Some("Rust") => 12,
+        _ => 6,
+    };
+    let demo_bonus = if repository.homepage.as_ref().is_some_and(|value| !value.trim().is_empty()) {
+        10
+    } else {
+        0
+    };
+
+    (stars_score + forks_score + recency_score + topic_score + language_score + demo_bonus
+        + frontend_relevance * 14
+        - issue_penalty)
+        .max(1)
 }
 
 fn should_retry_status(status: u16) -> bool {
@@ -357,6 +398,27 @@ fn retry_delay(attempt: usize) -> Duration {
     Duration::from_millis(350 * attempt as u64)
 }
 
+fn recency_score(updated_at: &str) -> i64 {
+    let updated_at = chrono::DateTime::parse_from_rfc3339(updated_at)
+        .map(|value| value.with_timezone(&chrono::Utc))
+        .ok();
+
+    let Some(updated_at) = updated_at else {
+        return 8;
+    };
+
+    let days = (chrono::Utc::now() - updated_at).num_days();
+    if days <= 7 {
+        26
+    } else if days <= 30 {
+        20
+    } else if days <= 90 {
+        12
+    } else {
+        5
+    }
+}
+
 fn summarize_error_body(body: &str) -> String {
     let trimmed = body.trim();
     if trimmed.is_empty() {
@@ -368,23 +430,11 @@ fn summarize_error_body(body: &str) -> String {
 
 fn rule_based_summary(repository: &GitHubRepositoryItem) -> GeneratedSummary {
     let topics = repository.topics.clone().unwrap_or_default();
-    let category = if topics.iter().any(|topic| topic.contains("agent")) {
-        "AI Agent"
-    } else if topics.iter().any(|topic| topic.contains("rag")) {
-        "RAG"
-    } else if repository
-        .language
-        .as_deref()
-        .is_some_and(|language| matches!(language, "TypeScript" | "JavaScript"))
-    {
-        "AI UI / Frontend"
-    } else {
-        "LLM 应用"
-    };
+    let category = classify_repository(repository);
 
-    let frontend_relevance = if category == "AI UI / Frontend" {
+    let frontend_relevance = if category == CATEGORY_FRONTEND {
         3
-    } else if topics.iter().any(|topic| topic.contains("agent") || topic.contains("workflow")) {
+    } else if matches!(category, CATEGORY_AGENT | CATEGORY_WORKFLOW | CATEGORY_RAG) {
         2
     } else {
         1
@@ -420,5 +470,111 @@ fn rule_based_summary(repository: &GitHubRepositoryItem) -> GeneratedSummary {
         },
         frontend_relevance,
         category: category.to_string(),
+    }
+}
+
+fn normalize_category(input: &str, repository: &GitHubRepositoryItem) -> String {
+    let normalized = input.trim().to_lowercase();
+
+    if normalized.contains("agent") {
+        CATEGORY_AGENT.to_string()
+    } else if normalized.contains("rag") || normalized.contains("search") || normalized.contains("retrieval") {
+        CATEGORY_RAG.to_string()
+    } else if normalized.contains("front") || normalized.contains("ui") || normalized.contains("chat") {
+        CATEGORY_FRONTEND.to_string()
+    } else if normalized.contains("workflow") || normalized.contains("automation") {
+        CATEGORY_WORKFLOW.to_string()
+    } else if normalized.contains("multimodal") || normalized.contains("speech") || normalized.contains("voice") {
+        CATEGORY_MULTIMODAL.to_string()
+    } else if normalized.contains("tool") || normalized.contains("sdk") || normalized.contains("framework") {
+        CATEGORY_DEVTOOLS.to_string()
+    } else {
+        classify_repository(repository).to_string()
+    }
+}
+
+fn classify_repository(repository: &GitHubRepositoryItem) -> &'static str {
+    let description = repository
+        .description
+        .as_deref()
+        .unwrap_or_default()
+        .to_lowercase();
+    let topics = repository.topics.clone().unwrap_or_default();
+    let has_topic = |keywords: &[&str]| {
+        topics.iter().any(|topic| {
+            let topic = topic.to_lowercase();
+            keywords.iter().any(|keyword| topic.contains(keyword))
+        })
+    };
+
+    if has_topic(&["frontend", "chat-ui", "ui", "webui"]) || description.contains("chat interface") {
+        CATEGORY_FRONTEND
+    } else if has_topic(&["agent", "multi-agent", "autonomous"]) || description.contains("agent") {
+        CATEGORY_AGENT
+    } else if has_topic(&["rag", "retrieval", "search"]) || description.contains("retrieval") {
+        CATEGORY_RAG
+    } else if has_topic(&["workflow", "automation", "orchestrator"]) || description.contains("workflow") {
+        CATEGORY_WORKFLOW
+    } else if has_topic(&["speech", "voice", "multimodal", "audio"]) || description.contains("voice") {
+        CATEGORY_MULTIMODAL
+    } else if has_topic(&["sdk", "framework", "tooling", "developer-tools"]) || description.contains("framework") {
+        CATEGORY_DEVTOOLS
+    } else {
+        CATEGORY_LLM_APP
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_repo(topics: &[&str], language: Option<&str>, description: &str, updated_at: &str) -> GitHubRepositoryItem {
+        GitHubRepositoryItem {
+            full_name: "demo/repo".to_string(),
+            name: "repo".to_string(),
+            description: Some(description.to_string()),
+            html_url: "https://github.com/demo/repo".to_string(),
+            homepage: Some("https://demo.example.com".to_string()),
+            language: language.map(str::to_string),
+            stargazers_count: 12000,
+            forks_count: 1600,
+            open_issues_count: 32,
+            topics: Some(topics.iter().map(|value| (*value).to_string()).collect()),
+            updated_at: updated_at.to_string(),
+            owner: GitHubOwner {
+                login: "demo".to_string(),
+            },
+            license: None,
+        }
+    }
+
+    #[test]
+    fn classify_repository_prefers_frontend_category() {
+        let repository = sample_repo(
+            &["frontend", "chat-ui", "rag"],
+            Some("TypeScript"),
+            "Open source chat interface for local models",
+            "2026-03-15T10:00:00Z",
+        );
+
+        assert_eq!(classify_repository(&repository), CATEGORY_FRONTEND);
+    }
+
+    #[test]
+    fn calculate_score_rewards_recency_and_frontend_relevance() {
+        let recent = sample_repo(
+            &["agent", "workflow"],
+            Some("TypeScript"),
+            "Agent workflow orchestration",
+            "2026-03-18T10:00:00Z",
+        );
+        let stale = sample_repo(
+            &["agent", "workflow"],
+            Some("TypeScript"),
+            "Agent workflow orchestration",
+            "2025-01-01T10:00:00Z",
+        );
+
+        assert!(calculate_score(&recent, 3) > calculate_score(&stale, 1));
     }
 }

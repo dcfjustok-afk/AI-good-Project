@@ -13,6 +13,11 @@ use crate::{
 
 #[tauri::command]
 pub async fn health_check(state: State<'_, AppState>) -> Result<HealthCheckResponse, String> {
+    let snapshot = db::get_health_snapshot(&state.db_path).map_err(|error| {
+        logging::error(&state.log_path, "health_check", &error.to_string());
+        error.to_string()
+    })?;
+
     Ok(HealthCheckResponse {
         status: "ready".to_string(),
         message: if state.config.minimax_api_key.is_some() {
@@ -24,6 +29,9 @@ pub async fn health_check(state: State<'_, AppState>) -> Result<HealthCheckRespo
         model: state.config.minimax_model.clone(),
         database_path: state.db_path.display().to_string(),
         log_path: state.log_path.display().to_string(),
+        project_count: snapshot.project_count,
+        favorite_count: snapshot.favorite_count,
+        last_synced_at: snapshot.last_synced_at,
         github_token_configured: state.config.github_token.is_some(),
         minimax_api_key_configured: state.config.minimax_api_key.is_some(),
     })

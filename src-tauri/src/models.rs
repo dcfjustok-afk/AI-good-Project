@@ -9,6 +9,9 @@ pub struct HealthCheckResponse {
     pub model: String,
     pub database_path: String,
     pub log_path: String,
+    pub project_count: usize,
+    pub favorite_count: usize,
+    pub last_synced_at: Option<String>,
     pub github_token_configured: bool,
     pub minimax_api_key_configured: bool,
 }
@@ -36,6 +39,7 @@ pub struct ProjectSummary {
     pub forks: i64,
     pub updated_at: String,
     pub category: String,
+    pub score: i64,
     pub frontend_relevance: i64,
     pub summary: String,
     pub topics: Vec<String>,
@@ -61,6 +65,7 @@ pub struct ProjectDetail {
     pub open_issues: i64,
     pub updated_at: String,
     pub category: String,
+    pub score: i64,
     pub frontend_relevance: i64,
     pub summary: String,
     pub highlights: Vec<String>,
@@ -122,6 +127,8 @@ pub struct SyncedProject {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectFilters {
+    pub search: Option<String>,
+    pub topic: Option<String>,
     pub language: Option<String>,
     pub category: Option<String>,
     pub frontend_only: Option<bool>,

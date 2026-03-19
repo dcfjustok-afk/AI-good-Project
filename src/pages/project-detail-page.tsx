@@ -111,6 +111,10 @@ export function ProjectDetailPage() {
                 <dd className="mt-1">{detail?.learningCost || "中"}</dd>
               </div>
               <div>
+                <dt className="font-medium text-ink">推荐分</dt>
+                <dd className="mt-1">{detail?.score || 0}</dd>
+              </div>
+              <div>
                 <dt className="font-medium text-ink">License</dt>
                 <dd className="mt-1">{detail?.license || "未知"}</dd>
               </div>

@@ -9,6 +9,12 @@ use crate::models::{
     SyncedProject,
 };
 
+pub struct HealthSnapshot {
+    pub project_count: usize,
+    pub favorite_count: usize,
+    pub last_synced_at: Option<String>,
+}
+
 pub const DATABASE_FILE_NAME: &str = "ai-good-project.db";
 
 type SeedProject<'a> = (
@@ -57,6 +63,8 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
     let page = filters.page.unwrap_or(1).max(1);
     let page_size = i64::from(limit);
     let offset = i64::from(page.saturating_sub(1)) * page_size;
+    let search_like = filters.search.as_deref().map(normalize_search_like);
+    let topic_like = filters.topic.as_deref().map(normalize_search_like);
 
     let sort_by = match filters.sort_by.as_deref() {
         Some("stars") => "p.stars DESC, p.updated_at DESC",
@@ -72,6 +80,14 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
           AND (?3 = 0 OR COALESCE(s.frontend_relevance, 0) >= 2)
           AND (?4 = 0 OR (p.demo_url IS NOT NULL AND p.demo_url <> ''))
           AND (?5 = 0 OR f.repo_id IS NOT NULL)
+                    AND (
+                        ?6 IS NULL
+                        OR lower(p.repo_name) LIKE ?6
+                        OR lower(p.description) LIKE ?6
+                        OR lower(COALESCE(s.summary, p.description)) LIKE ?6
+                        OR lower(p.topics) LIKE ?6
+                    )
+                    AND (?7 IS NULL OR lower(p.topics) LIKE ?7)
     "#;
 
     let count_query = format!(
@@ -93,6 +109,8 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
             bool_to_i64(filters.frontend_only.unwrap_or(false)),
             bool_to_i64(filters.has_demo.unwrap_or(false)),
             bool_to_i64(filters.favorites_only.unwrap_or(false)),
+            search_like.clone(),
+            topic_like.clone(),
         ],
         |row| row.get(0),
     )?;
@@ -110,6 +128,7 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
             p.forks,
             p.updated_at,
             p.category,
+            p.score,
             COALESCE(s.frontend_relevance, 0) AS frontend_relevance,
             COALESCE(s.summary, p.description) AS summary,
             p.topics,
@@ -121,7 +140,7 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
         LEFT JOIN favorites f ON f.repo_id = p.id
                 {}
         ORDER BY {}
-                LIMIT ?6 OFFSET ?7
+            LIMIT ?8 OFFSET ?9
         "#,
                 where_clause,
         sort_by
@@ -135,6 +154,8 @@ pub fn list_projects(db_path: &Path, filters: ProjectFilters) -> Result<ProjectL
             bool_to_i64(filters.frontend_only.unwrap_or(false)),
             bool_to_i64(filters.has_demo.unwrap_or(false)),
             bool_to_i64(filters.favorites_only.unwrap_or(false)),
+            search_like,
+            topic_like,
             page_size,
             offset,
         ],
@@ -165,6 +186,23 @@ pub fn list_favorites(db_path: &Path) -> Result<Vec<ProjectSummary>> {
     .items)
 }
 
+pub fn get_health_snapshot(db_path: &Path) -> Result<HealthSnapshot> {
+    let connection = open_connection(db_path)?;
+    let project_count: i64 = connection.query_row("SELECT COUNT(*) FROM projects", [], |row| row.get(0))?;
+    let favorite_count: i64 = connection.query_row("SELECT COUNT(*) FROM favorites", [], |row| row.get(0))?;
+    let last_synced_at = connection.query_row(
+        "SELECT MAX(synced_at) FROM projects",
+        [],
+        |row| row.get::<_, Option<String>>(0),
+    )?;
+
+    Ok(HealthSnapshot {
+        project_count: project_count.max(0) as usize,
+        favorite_count: favorite_count.max(0) as usize,
+        last_synced_at,
+    })
+}
+
 pub fn get_project_detail_by_repo(db_path: &Path, owner: &str, repo: &str) -> Result<ProjectDetail> {
     let connection = open_connection(db_path)?;
     let mut statement = connection.prepare(
@@ -184,6 +222,7 @@ pub fn get_project_detail_by_repo(db_path: &Path, owner: &str, repo: &str) -> Re
             p.open_issues,
             p.updated_at,
             p.category,
+            p.score,
             COALESCE(s.frontend_relevance, 0) AS frontend_relevance,
             COALESCE(s.summary, p.description) AS summary,
             COALESCE(s.highlights, '[]') AS highlights,
@@ -218,15 +257,16 @@ pub fn get_project_detail_by_repo(db_path: &Path, owner: &str, repo: &str) -> Re
                 open_issues: row.get(11)?,
                 updated_at: row.get(12)?,
                 category: row.get(13)?,
-                frontend_relevance: row.get(14)?,
-                summary: row.get(15)?,
-                highlights: parse_json_vec(&row.get::<_, String>(16)?),
-                use_cases: parse_json_vec(&row.get::<_, String>(17)?),
-                frontend_value: row.get(18)?,
-                learning_cost: row.get(19)?,
-                topics: parse_json_vec(&row.get::<_, String>(20)?),
-                license: row.get(21)?,
-                is_favorite: row.get::<_, i64>(22)? == 1,
+                score: row.get::<_, f64>(14)? as i64,
+                frontend_relevance: row.get(15)?,
+                summary: row.get(16)?,
+                highlights: parse_json_vec(&row.get::<_, String>(17)?),
+                use_cases: parse_json_vec(&row.get::<_, String>(18)?),
+                frontend_value: row.get(19)?,
+                learning_cost: row.get(20)?,
+                topics: parse_json_vec(&row.get::<_, String>(21)?),
+                license: row.get(22)?,
+                is_favorite: row.get::<_, i64>(23)? == 1,
             })
         })
         .optional()?
@@ -620,13 +660,18 @@ fn map_project_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<ProjectSumma
         forks: row.get(7)?,
         updated_at: row.get(8)?,
         category: row.get(9)?,
-        frontend_relevance: row.get(10)?,
-        summary: row.get(11)?,
-        topics: parse_json_vec(&row.get::<_, String>(12)?),
-        demo_url: row.get(13)?,
-        is_favorite: row.get::<_, i64>(14)? == 1,
-        favorite_created_at: row.get(15)?,
+        score: row.get::<_, f64>(10)? as i64,
+        frontend_relevance: row.get(11)?,
+        summary: row.get(12)?,
+        topics: parse_json_vec(&row.get::<_, String>(13)?),
+        demo_url: row.get(14)?,
+        is_favorite: row.get::<_, i64>(15)? == 1,
+        favorite_created_at: row.get(16)?,
     })
+}
+
+fn normalize_search_like(value: &str) -> String {
+    format!("%{}%", value.trim().to_lowercase())
 }
 
 fn serialize_json(items: &[&str]) -> String {
@@ -733,6 +778,34 @@ mod tests {
 
         assert_eq!(page_two.items.len(), 1);
         assert!(!page_two.has_more);
+
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[test]
+    fn list_projects_supports_keyword_and_topic_search() {
+        let db_path = create_test_database();
+
+        let result = list_projects(
+            &db_path,
+            ProjectFilters {
+                search: Some("repo-two".to_string()),
+                ..ProjectFilters::default()
+            },
+        )
+        .expect("keyword search should succeed");
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.items[0].repo, "repo-two");
+
+        let result = list_projects(
+            &db_path,
+            ProjectFilters {
+                topic: Some("frontend".to_string()),
+                ..ProjectFilters::default()
+            },
+        )
+        .expect("topic search should succeed");
+        assert_eq!(result.total, 3);
 
         let _ = fs::remove_file(db_path);
     }

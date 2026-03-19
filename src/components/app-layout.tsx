@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { BrainCircuit, Heart, House, Sparkles } from "lucide-react";
 import { publicAppConfig } from "../lib/env";
+import { useAutoSync } from "../hooks/use-auto-sync";
 
 const navigationItems = [
   { to: "/", label: "首页", icon: House },
@@ -8,6 +9,8 @@ const navigationItems = [
 ];
 
 export function AppLayout() {
+  useAutoSync();
+
   return (
     <div className="min-h-screen text-ink">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
@@ -26,7 +29,7 @@ export function AppLayout() {
                 </span>
               </Link>
               <p className="max-w-2xl text-sm text-slate/80 sm:text-base">
-                本地数据、手动同步、详情与收藏闭环已经接通；当前界面重点补齐真实筛选、排序和缓存优先展示。
+                本地数据、自动同步、无限加载、详情与收藏闭环已经接通；当前界面支持更细的搜索、分类和缓存优先展示。
               </p>
             </div>
 

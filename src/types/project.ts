@@ -5,11 +5,16 @@ export type HealthCheckResponse = {
   model: string;
   databasePath: string;
   logPath: string;
+  projectCount: number;
+  favoriteCount: number;
+  lastSyncedAt: string | null;
   githubTokenConfigured: boolean;
   minimaxApiKeyConfigured: boolean;
 };
 
 export type ProjectFilters = {
+  search?: string;
+  topic?: string;
   language?: string;
   category?: string;
   frontendOnly?: boolean;
@@ -39,6 +44,7 @@ export type ProjectSummary = {
   forks: number;
   updatedAt: string;
   category: string;
+  score: number;
   summary: string;
   topics: string[];
   demoUrl: string | null;
@@ -62,6 +68,7 @@ export type ProjectDetail = {
   openIssues: number;
   updatedAt: string;
   category: string;
+  score: number;
   frontendRelevance: number;
   summary: string;
   highlights: string[];
