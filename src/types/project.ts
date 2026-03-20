@@ -20,7 +20,9 @@ export type ProjectFilters = {
   frontendOnly?: boolean;
   favoritesOnly?: boolean;
   hasDemo?: boolean;
-  sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance" | "favoritedAt";
+  aiOnly?: boolean;
+  era?: "classic" | "latest";
+  sortBy?: "score" | "stars" | "updatedAt" | "frontendRelevance" | "favoritedAt" | "impactRank";
   page?: number;
   limit?: number;
 };
@@ -46,11 +48,23 @@ export type ProjectSummary = {
   category: string;
   score: number;
   summary: string;
+  descriptionLong: string;
   topics: string[];
   demoUrl: string | null;
+  isAI: boolean;
+  era: "classic" | "latest";
+  impactRank: number;
   frontendRelevance: number;
   isFavorite: boolean;
   favoriteCreatedAt: string | null;
+};
+
+export type AiProjectSectionsResponse = {
+  classic: ProjectSummary[];
+  latest: ProjectSummary[];
+  classicTotal: number;
+  latestTotal: number;
+  invalidEraCount: number;
 };
 
 export type ProjectDetail = {

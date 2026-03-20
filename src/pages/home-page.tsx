@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Database, RefreshCcw, Search, Server, TimerReset } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
 import { useAppHealth } from "../hooks/use-app-health";
+import { useAiProjectSections } from "../hooks/use-ai-project-sections";
 import { useInfiniteProjects } from "../hooks/use-infinite-projects";
 import { useProjects } from "../hooks/use-projects";
 import { useSyncData } from "../hooks/use-sync-data";
@@ -36,6 +37,8 @@ export function HomePage() {
     category,
     frontendOnly,
     hasDemo,
+    aiOnly,
+    era,
     sortBy,
     limit,
     setSearch,
@@ -44,6 +47,7 @@ export function HomePage() {
     setCategory,
     toggleFrontendOnly,
     toggleHasDemo,
+    setEra,
     setSortBy,
     setLimit,
     resetFilters,
@@ -62,14 +66,18 @@ export function HomePage() {
     category: category || undefined,
     frontendOnly,
     hasDemo,
+    aiOnly,
+    era: era || undefined,
     sortBy,
     limit,
   };
   const projectsQuery = useInfiniteProjects(projectFilters);
+  const aiSectionsQuery = useAiProjectSections(Math.max(limit, 24));
   const facetsQuery = useProjects({
+    aiOnly: true,
     sortBy: "score",
     page: 1,
-    limit: 120,
+    limit: 240,
   });
   const syncDataMutation = useSyncData();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -91,6 +99,8 @@ export function HomePage() {
   const latestPage = pages[pages.length - 1];
   const total = latestPage?.total ?? 0;
   const hasMore = Boolean(projectsQuery.hasNextPage);
+  const classicProjects = aiSectionsQuery.data?.classic ?? [];
+  const latestProjects = aiSectionsQuery.data?.latest ?? [];
 
   useEffect(() => {
     if (!sentinelRef.current || !hasMore) {
@@ -146,6 +156,9 @@ export function HomePage() {
             >
               {syncDataMutation.isPending ? "正在同步 GitHub 数据..." : "手动同步 GitHub 榜单"}
             </button>
+            <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80">
+              当前模式：仅 AI 项目
+            </span>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -394,7 +407,21 @@ export function HomePage() {
               <option value="score">综合推荐</option>
               <option value="stars">Star 数</option>
               <option value="updatedAt">最近更新</option>
+              <option value="impactRank">经典影响力</option>
               <option value="frontendRelevance">前端相关度</option>
+            </select>
+          </label>
+
+          <label className="space-y-2 text-sm text-slate/80">
+            <span className="font-medium text-ink">AI 栏目</span>
+            <select
+              value={era}
+              onChange={(event) => setEra(event.target.value as "" | "classic" | "latest")}
+              className="w-full rounded-2xl border border-slate/15 bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+            >
+              <option value="">全部 AI 项目</option>
+              <option value="classic">经典 AI</option>
+              <option value="latest">最新 AI</option>
             </select>
           </label>
 
@@ -407,6 +434,7 @@ export function HomePage() {
             >
               <option value="12">12</option>
               <option value="24">24</option>
+              <option value="36">36</option>
               <option value="48">48</option>
             </select>
           </label>
@@ -428,6 +456,54 @@ export function HomePage() {
             </button>
           </div>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.28em] text-slate/60">AI 专栏</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">经典 AI 项目 与 最新 AI 项目</h2>
+          </div>
+          <div className="rounded-full bg-white/80 px-4 py-2 text-sm text-slate/80 shadow-sm">
+            经典 {aiSectionsQuery.data?.classicTotal ?? 0} / 最新 {aiSectionsQuery.data?.latestTotal ?? 0}
+          </div>
+        </div>
+
+        {aiSectionsQuery.data?.invalidEraCount ? (
+          <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-card">
+            检测到 {aiSectionsQuery.data.invalidEraCount} 条 AI 项目 era 字段异常，已自动排除并记录。
+          </div>
+        ) : null}
+
+        <article className="space-y-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-card">
+          <h3 className="text-lg font-semibold text-ink">经典 AI 项目</h3>
+          <p className="text-sm text-slate/75">按经典影响力排序，优先展示长期高价值的 AI 开源项目。</p>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {classicProjects.map((project) => (
+              <ProjectCard
+                key={`classic-${project.id}`}
+                project={project}
+                onToggleFavorite={(projectId) => toggleFavoriteMutation.mutate(projectId)}
+                isTogglingFavorite={toggleFavoriteMutation.isPending}
+              />
+            ))}
+          </div>
+        </article>
+
+        <article className="space-y-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-card">
+          <h3 className="text-lg font-semibold text-ink">最新 AI 项目</h3>
+          <p className="text-sm text-slate/75">按最近更新时间排序，帮助快速发现近期活跃的新项目。</p>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {latestProjects.map((project) => (
+              <ProjectCard
+                key={`latest-${project.id}`}
+                project={project}
+                onToggleFavorite={(projectId) => toggleFavoriteMutation.mutate(projectId)}
+                isTogglingFavorite={toggleFavoriteMutation.isPending}
+              />
+            ))}
+          </div>
+        </article>
       </section>
 
       <section className="space-y-4">

@@ -47,6 +47,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::health_check,
             commands::get_projects,
+            commands::get_ai_project_sections,
             commands::get_project_detail,
             commands::toggle_favorite,
             commands::get_favorites,

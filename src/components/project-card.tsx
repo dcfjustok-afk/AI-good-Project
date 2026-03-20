@@ -50,6 +50,8 @@ function formatRelativeDate(value: string) {
 }
 
 export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = false }: ProjectCardProps) {
+  const description = project.descriptionLong || project.summary;
+
   return (
     <article className="group rounded-[24px] border border-white/80 bg-white/85 p-5 shadow-card transition hover:-translate-y-1 hover:shadow-2xl">
       <div className="flex items-start justify-between gap-4">
@@ -83,7 +85,17 @@ export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = fa
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-slate/90">{project.summary}</p>
+      <p
+        className="mt-4 text-sm leading-6 text-slate/90"
+        style={{
+          display: "-webkit-box",
+          WebkitLineClamp: 4,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
+        {description}
+      </p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {project.topics.map((tag) => (

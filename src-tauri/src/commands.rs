@@ -4,8 +4,8 @@ use crate::{
     db,
     logging,
     models::{
-        FavoriteToggleResponse, HealthCheckResponse, ProjectDetail, ProjectFilters,
-        ProjectListResponse, ProjectSummary, SyncDataResponse,
+        AiProjectSectionsResponse, FavoriteToggleResponse, HealthCheckResponse, ProjectDetail,
+        ProjectFilters, ProjectListResponse, ProjectSummary, SyncDataResponse,
     },
     services::sync::SyncService,
     AppState,
@@ -44,6 +44,17 @@ pub async fn get_projects(
 ) -> Result<ProjectListResponse, String> {
     db::list_projects(&state.db_path, filters.unwrap_or_default()).map_err(|error| {
         logging::error(&state.log_path, "get_projects", &error.to_string());
+        error.to_string()
+    })
+}
+
+#[tauri::command]
+pub async fn get_ai_project_sections(
+    state: State<'_, AppState>,
+    limit: Option<u32>,
+) -> Result<AiProjectSectionsResponse, String> {
+    db::list_ai_project_sections(&state.db_path, limit.unwrap_or(24)).map_err(|error| {
+        logging::error(&state.log_path, "get_ai_project_sections", &error.to_string());
         error.to_string()
     })
 }

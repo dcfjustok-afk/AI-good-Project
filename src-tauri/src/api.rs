@@ -21,6 +21,7 @@ const CATEGORY_MULTIMODAL: &str = "Speech / Multimodal";
 const CATEGORY_DEVTOOLS: &str = "Developer Tooling";
 const CATEGORY_LLM_APP: &str = "LLM Application";
 const MAX_RETRIES: usize = 3;
+const CLASSIC_IMPACT_THRESHOLD: i64 = 85;
 
 pub struct FetchProjectsResult {
     pub projects: Vec<SyncedProject>,
@@ -134,12 +135,20 @@ pub async fn fetch_trending_projects(config: &AppConfig) -> Result<FetchProjects
         let topics = repository.topics.clone().unwrap_or_default();
         let category = normalize_category(&summary.category, &repository);
         let score = calculate_score(&repository, summary.frontend_relevance);
+        let impact_rank = (score + repository.stargazers_count / 1000).max(1);
+        let era = classify_era(repository.stargazers_count, &repository.updated_at, impact_rank);
+        let description = repository
+            .description
+            .clone()
+            .unwrap_or_else(|| "暂无仓库描述".to_string());
+        let description_long = build_long_description(&description, &summary, &repository);
+        let is_ai = is_ai_related_repository(&repository, &summary, &description);
 
         projects.push(SyncedProject {
             owner: repository.owner.login,
             repo: repository.name,
             repo_name: repository.full_name,
-            description: repository.description.unwrap_or_else(|| "暂无仓库描述".to_string()),
+            description,
             github_url: repository.html_url,
             homepage_url: repository.homepage.clone(),
             demo_url: repository.homepage,
@@ -153,11 +162,15 @@ pub async fn fetch_trending_projects(config: &AppConfig) -> Result<FetchProjects
             license: repository.license.and_then(|license| license.spdx_id.or(license.name)),
             updated_at: repository.updated_at,
             summary: summary.summary,
+            description_long,
             highlights: summary.highlights,
             use_cases: summary.use_cases,
             frontend_value: summary.frontend_value,
             learning_cost: summary.learning_cost,
             frontend_relevance: summary.frontend_relevance.clamp(1, 3),
+            is_ai,
+            era,
+            impact_rank,
         });
     }
 
@@ -522,6 +535,97 @@ fn classify_repository(repository: &GitHubRepositoryItem) -> &'static str {
     } else {
         CATEGORY_LLM_APP
     }
+}
+
+fn is_ai_related_repository(
+    repository: &GitHubRepositoryItem,
+    summary: &GeneratedSummary,
+    description: &str,
+) -> bool {
+    let text = format!(
+        "{} {} {} {}",
+        repository.full_name,
+        description,
+        summary.summary,
+        summary.category
+    )
+    .to_lowercase();
+
+    let has_ai_keyword = [
+        "ai",
+        "llm",
+        "agent",
+        "rag",
+        "model",
+        "embedding",
+        "inference",
+        "openai",
+        "anthropic",
+        "transformer",
+    ]
+    .iter()
+    .any(|keyword| text.contains(keyword));
+
+    let has_ai_topic = repository
+        .topics
+        .as_ref()
+        .map(|topics| {
+            topics.iter().any(|topic| {
+                let normalized = topic.to_lowercase();
+                ["ai", "llm", "agent", "rag", "ml", "nlp"]
+                    .iter()
+                    .any(|keyword| normalized.contains(keyword))
+            })
+        })
+        .unwrap_or(false);
+
+    has_ai_keyword || has_ai_topic
+}
+
+fn classify_era(stars: i64, updated_at: &str, impact_rank: i64) -> String {
+    if impact_rank >= CLASSIC_IMPACT_THRESHOLD || stars >= 30_000 {
+        return "classic".to_string();
+    }
+
+    let parsed = chrono::DateTime::parse_from_rfc3339(updated_at)
+        .map(|value| value.with_timezone(&chrono::Utc))
+        .ok();
+
+    if let Some(timestamp) = parsed {
+        let days = (chrono::Utc::now() - timestamp).num_days();
+        if days <= 240 {
+            return "latest".to_string();
+        }
+    }
+
+    if stars >= 15_000 {
+        "classic".to_string()
+    } else {
+        "latest".to_string()
+    }
+}
+
+fn build_long_description(
+    description: &str,
+    summary: &GeneratedSummary,
+    repository: &GitHubRepositoryItem,
+) -> String {
+    let topics = repository.topics.clone().unwrap_or_default();
+    let topics_text = if topics.is_empty() {
+        "主题标签待补充".to_string()
+    } else {
+        topics.join("、")
+    };
+
+    format!(
+        "{} 亮点：{}。适用场景：{}。前端价值：{}。学习成本：{}。主题：{}。",
+        description,
+        summary.highlights.join("；"),
+        summary.use_cases.join("；"),
+        summary.frontend_value,
+        summary.learning_cost,
+        topics_text
+    )
 }
 
 #[cfg(test)]

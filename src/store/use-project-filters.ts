@@ -9,6 +9,8 @@ type ProjectFiltersState = {
   category: string;
   frontendOnly: boolean;
   hasDemo: boolean;
+  aiOnly: boolean;
+  era: "" | "classic" | "latest";
   sortBy: NonNullable<ProjectFilters["sortBy"]>;
   page: number;
   limit: number;
@@ -18,6 +20,8 @@ type ProjectFiltersState = {
   setCategory: (category: string) => void;
   toggleFrontendOnly: () => void;
   toggleHasDemo: () => void;
+  toggleAiOnly: () => void;
+  setEra: (era: "" | "classic" | "latest") => void;
   setSortBy: (sortBy: NonNullable<ProjectFilters["sortBy"]>) => void;
   previousPage: () => void;
   nextPage: () => void;
@@ -25,13 +29,18 @@ type ProjectFiltersState = {
   resetFilters: () => void;
 };
 
-const defaultFilters = {
+const defaultFilters: Pick<
+  ProjectFiltersState,
+  "search" | "topic" | "language" | "category" | "frontendOnly" | "hasDemo" | "aiOnly" | "era" | "sortBy" | "page" | "limit"
+> = {
   search: "",
   topic: "",
   language: "",
   category: "",
   frontendOnly: false,
   hasDemo: false,
+  aiOnly: true,
+  era: "",
   sortBy: "score" as const,
   page: 1,
   limit: 12,
@@ -53,6 +62,12 @@ export const useProjectFiltersStore = create<ProjectFiltersState>((set) => ({
       hasDemo: !state.hasDemo,
       page: 1,
     })),
+  toggleAiOnly: () =>
+    set((state) => ({
+      aiOnly: !state.aiOnly,
+      page: 1,
+    })),
+  setEra: (era) => set({ era, page: 1 }),
   setSortBy: (sortBy) => set({ sortBy, page: 1 }),
   previousPage: () => set((state) => ({ page: Math.max(1, state.page - 1) })),
   nextPage: () => set((state) => ({ page: state.page + 1 })),

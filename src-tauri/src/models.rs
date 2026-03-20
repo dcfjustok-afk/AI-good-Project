@@ -42,10 +42,24 @@ pub struct ProjectSummary {
     pub score: i64,
     pub frontend_relevance: i64,
     pub summary: String,
+    pub description_long: String,
     pub topics: Vec<String>,
     pub demo_url: Option<String>,
+    pub is_ai: bool,
+    pub era: String,
+    pub impact_rank: i64,
     pub is_favorite: bool,
     pub favorite_created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AiProjectSectionsResponse {
+    pub classic: Vec<ProjectSummary>,
+    pub latest: Vec<ProjectSummary>,
+    pub classic_total: usize,
+    pub latest_total: usize,
+    pub invalid_era_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -117,11 +131,15 @@ pub struct SyncedProject {
     pub license: Option<String>,
     pub updated_at: String,
     pub summary: String,
+    pub description_long: String,
     pub highlights: Vec<String>,
     pub use_cases: Vec<String>,
     pub frontend_value: String,
     pub learning_cost: String,
     pub frontend_relevance: i64,
+    pub is_ai: bool,
+    pub era: String,
+    pub impact_rank: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -134,6 +152,8 @@ pub struct ProjectFilters {
     pub frontend_only: Option<bool>,
     pub favorites_only: Option<bool>,
     pub has_demo: Option<bool>,
+    pub ai_only: Option<bool>,
+    pub era: Option<String>,
     pub sort_by: Option<String>,
     pub page: Option<u32>,
     pub limit: Option<u32>,
