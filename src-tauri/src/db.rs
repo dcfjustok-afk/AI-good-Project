@@ -569,14 +569,23 @@ fn create_schema(connection: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
         CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_projects_is_favorite ON projects(is_favorite);
-        CREATE INDEX IF NOT EXISTS idx_projects_is_ai ON projects(is_ai);
-        CREATE INDEX IF NOT EXISTS idx_projects_era ON projects(era);
-        CREATE INDEX IF NOT EXISTS idx_projects_impact_rank ON projects(impact_rank DESC);
         CREATE INDEX IF NOT EXISTS idx_summaries_frontend_relevance ON summaries(frontend_relevance DESC);
         "#,
     )?;
 
     ensure_project_schema_extensions(connection)?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_projects_is_ai ON projects(is_ai)",
+        [],
+    )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_projects_era ON projects(era)",
+        [],
+    )?;
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_projects_impact_rank ON projects(impact_rank DESC)",
+        [],
+    )?;
 
     Ok(())
 }
