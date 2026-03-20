@@ -21,9 +21,9 @@ pub async fn health_check(state: State<'_, AppState>) -> Result<HealthCheckRespo
     Ok(HealthCheckResponse {
         status: "ready".to_string(),
         message: if state.config.minimax_api_key.is_some() {
-            "基础设施已就绪，当前已检测到 MiniMax Key，可直接尝试真实同步。".to_string()
+            "基础设施已就绪，当前已检测到 OpenAI 兼容 AI Key，可直接尝试真实同步。".to_string()
         } else {
-            "基础设施已就绪，当前未检测到 MiniMax Key，同步时会自动回退到规则摘要。".to_string()
+            "基础设施已就绪，当前未检测到 OpenAI 兼容 AI Key，同步时会自动回退到规则摘要。".to_string()
         },
         base_url: state.config.minimax_base_url.clone(),
         model: state.config.minimax_model.clone(),

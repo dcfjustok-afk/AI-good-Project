@@ -7,8 +7,8 @@
 - 本地 SQLite 持久化项目、摘要和收藏状态
 - 首页手动触发 GitHub 同步
 - 支持自动定时同步与最近同步时间展示
-- 已配置 MiniMax Key 时生成 AI 结构化摘要
-- 未配置 MiniMax 或单仓库摘要失败时自动回退到规则摘要
+- 已配置 OpenAI 兼容 AI Key 时生成结构化摘要
+- 未配置 AI Key 或单仓库摘要失败时自动回退到规则摘要
 - GitHub 请求支持重试与部分失败继续写库
 - 列表支持高级搜索、主题过滤、无限加载、排序和收藏状态切换
 - 推荐分已结合活跃度、语言、主题和 Demo 信号
@@ -31,10 +31,11 @@ cp .env.example .env
 
 至少建议填写以下变量：
 
-- MINIMAX_API_KEY：你的 MiniMax Key
+- AI_API_KEY：你的 OpenAI 兼容 AI Key，若未设置则会回退读取 MINIMAX_API_KEY
 - GITHUB_TOKEN：可选，但建议配置以降低 GitHub 速率限制风险
-- MINIMAX_MODEL：默认是 MiniMax-M2.5
-- MINIMAX_BASE_URL：默认是 https://api.minimaxi.com/v1
+- AI_MODEL：AI 模型名，若未设置则会回退读取 MINIMAX_MODEL
+- AI_BASE_URL：OpenAI 兼容接口地址，若未设置则会回退读取 MINIMAX_BASE_URL
+- AI_TEMPERATURE：可选，默认 `0.3`；若提供商或模型有特殊限制，可单独调整
 
 3. 启动桌面应用
 
@@ -53,8 +54,8 @@ pnpm tauri build
 
 ## 同步兜底说明
 
-- 没有 MINIMAX_API_KEY：整批同步仍会成功，但摘要来自规则生成
-- 单个仓库调用 MiniMax 失败：只回退该仓库，不影响整批同步
+- 没有 AI_API_KEY / MINIMAX_API_KEY：整批同步仍会成功，但摘要来自规则生成
+- 单个仓库调用 OpenAI 兼容 AI 提供商失败：只回退该仓库，不影响整批同步
 - 部分 GitHub 查询失败：保留成功结果并写入数据库，同时在界面展示警告
 
 ## 推荐开发环境

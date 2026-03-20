@@ -18,7 +18,7 @@ const milestones = [
   },
   {
     title: "同步链路",
-    description: "GitHub 抓取、MiniMax 摘要、失败重试和规则回退已经打通。",
+    description: "GitHub 抓取、OpenAI 兼容摘要、失败重试和规则回退已经打通。",
     icon: Server,
   },
   {
@@ -77,7 +77,7 @@ export function HomePage() {
   const syncErrorMessage =
     syncDataMutation.error instanceof Error
       ? syncDataMutation.error.message
-      : "请检查网络、GitHub 可达性，以及 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
+      : "请检查网络、GitHub 可达性，以及 AI_API_KEY 或 MINIMAX_API_KEY / GITHUB_TOKEN 是否已在本地环境中配置。";
   const pages = projectsQuery.data?.pages ?? [];
   const projects = useMemo(
     () => pages.flatMap((pageData) => pageData.items),
@@ -122,7 +122,7 @@ export function HomePage() {
             现在不仅能手动同步，还能自动定时拉取、做高级搜索，并以无限加载方式浏览 AI 开源项目榜单。
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/75 sm:text-base">
-            推荐分已经加入活跃度、主题、语言和 Demo 信号，更细分类会在同步时自动归一；如果本地配置了 MiniMax API Key，则继续生成结构化摘要，否则自动回退规则摘要。
+            推荐分已经加入活跃度、主题、语言和 Demo 信号，更细分类会在同步时自动归一；如果本地配置了 OpenAI 兼容 AI Key，则继续生成结构化摘要，否则自动回退规则摘要。
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -266,7 +266,7 @@ export function HomePage() {
               <dd className="mt-1">{healthQuery.data?.model || "MiniMax-M2.5"}</dd>
             </div>
             <div>
-              <dt className="font-medium text-ink">MiniMax Key</dt>
+              <dt className="font-medium text-ink">AI Key</dt>
               <dd className="mt-1">
                 {healthQuery.data?.minimaxApiKeyConfigured ? "已配置，可走 AI 摘要" : "未配置，将回退规则摘要"}
               </dd>

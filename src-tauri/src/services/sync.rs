@@ -40,9 +40,9 @@ impl SyncService {
                 sync_result.ai_fallback_count
             )
         } else if used_ai {
-            "同步完成，已使用 MiniMax 生成结构化摘要。".to_string()
+            "同步完成，已使用 OpenAI 兼容 AI 提供商生成结构化摘要。".to_string()
         } else {
-            "同步完成，当前未配置 MiniMax API Key，已使用规则摘要兜底。".to_string()
+            "同步完成，当前未配置 OpenAI 兼容 AI Key，已使用规则摘要兜底。".to_string()
         };
 
         if let Some(path) = &log_path {

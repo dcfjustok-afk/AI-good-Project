@@ -208,14 +208,14 @@ async fn try_generate_summary(
         config.minimax_api_key.as_deref().unwrap_or_default(),
         &json!({
             "model": config.minimax_model,
-            "temperature": 0.3,
+            "temperature": config.minimax_temperature,
             "response_format": { "type": "json_object" },
             "messages": [
                 { "role": "system", "content": "你输出的必须是合法 JSON，且适合中文产品情报站直接展示。" },
                 { "role": "user", "content": prompt }
             ]
         }),
-        &format!("MiniMax summary for {}", repository.full_name),
+        &format!("AI summary for {}", repository.full_name),
     )
     .await?;
 
@@ -224,7 +224,7 @@ async fn try_generate_summary(
         .first()
         .map(|choice| choice.message.content.trim().to_string())
         .filter(|content| !content.is_empty())
-        .context("MiniMax response did not contain summary content")?;
+        .context("AI provider response did not contain summary content")?;
 
     serde_json::from_str::<GeneratedSummary>(&content).or_else(|_| Ok(rule_based_summary(repository)))
 }
