@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { CheckCircle2, Database, RefreshCcw, Search, Server, TimerReset } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
+import { QueryState } from "../components/query-state";
 import { useAppHealth } from "../hooks/use-app-health";
 import { useAiProjectSections } from "../hooks/use-ai-project-sections";
 import { useInfiniteProjects } from "../hooks/use-infinite-projects";
@@ -124,9 +125,11 @@ export function HomePage() {
   }, [hasMore, projectsQuery]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-up motion-reduce:animate-none">
       <section className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
-        <div className="rounded-[32px] bg-ink px-6 py-8 text-white shadow-card sm:px-8">
+        <div className="relative overflow-hidden rounded-[32px] bg-ink px-5 py-7 text-white shadow-card sm:px-8">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/20 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-14 left-8 h-32 w-32 rounded-full bg-amber/20 blur-2xl" />
           <p className="text-sm uppercase tracking-[0.3em] text-white/60">Next Iteration</p>
           <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">
             现在不仅能手动同步，还能自动定时拉取、做高级搜索，并以无限加载方式浏览 AI 开源项目榜单。
@@ -162,7 +165,7 @@ export function HomePage() {
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-soft">
               <span className="flex items-center gap-2 font-medium text-white">
                 <TimerReset className="h-4 w-4" />
                 自动同步
@@ -197,7 +200,7 @@ export function HomePage() {
               </p>
             </label>
 
-            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+            <label className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-soft">
               <span className="flex items-center gap-2 font-medium text-white">
                 <Search className="h-4 w-4" />
                 高级搜索
@@ -221,7 +224,7 @@ export function HomePage() {
           ) : null}
 
           {syncDataMutation.data ? (
-            <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80">
+            <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white/80 shadow-soft">
               {syncDataMutation.data.message} 本次处理 {syncDataMutation.data.processed} 个仓库，新增 {syncDataMutation.data.inserted} 个，更新 {syncDataMutation.data.updated} 个。
               {syncDataMutation.data.usedFallback ? (
                 <p className="mt-2 text-white/70">
@@ -258,7 +261,7 @@ export function HomePage() {
           ) : null}
         </div>
 
-        <div className="rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-card backdrop-blur">
+        <div className="glass-surface rounded-[32px] border border-white/80 p-6 shadow-soft">
           <div className="flex items-center gap-2 text-sm font-medium text-slate/70">
             <CheckCircle2 className="h-4 w-4 text-pine" />
             应用自检
@@ -322,7 +325,7 @@ export function HomePage() {
         {milestones.map(({ title, description, icon: Icon }) => (
           <article
             key={title}
-            className="rounded-[24px] border border-white/80 bg-white/75 p-5 shadow-card backdrop-blur"
+            className="glass-surface rounded-[24px] border border-white/80 p-5 shadow-soft"
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-pine/10 text-pine">
               <Icon className="h-5 w-5" />
@@ -333,7 +336,7 @@ export function HomePage() {
         ))}
       </section>
 
-      <section className="rounded-[28px] border border-white/80 bg-white/75 p-5 shadow-card backdrop-blur">
+      <section className="glass-surface rounded-[28px] border border-white/80 p-5 shadow-soft">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-slate/60">真实筛选</p>
@@ -348,7 +351,7 @@ export function HomePage() {
           </button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
           <label className="space-y-2 text-sm text-slate/80">
             <span className="font-medium text-ink">语言</span>
             <select
@@ -475,7 +478,7 @@ export function HomePage() {
           </div>
         ) : null}
 
-        <article className="space-y-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-card">
+        <article className="glass-surface space-y-3 rounded-[24px] border border-white/80 p-4 shadow-soft">
           <h3 className="text-lg font-semibold text-ink">经典 AI 项目</h3>
           <p className="text-sm text-slate/75">按经典影响力排序，优先展示长期高价值的 AI 开源项目。</p>
           <div className="grid gap-4 xl:grid-cols-2">
@@ -490,7 +493,7 @@ export function HomePage() {
           </div>
         </article>
 
-        <article className="space-y-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-card">
+        <article className="glass-surface space-y-3 rounded-[24px] border border-white/80 p-4 shadow-soft">
           <h3 className="text-lg font-semibold text-ink">最新 AI 项目</h3>
           <p className="text-sm text-slate/75">按最近更新时间排序，帮助快速发现近期活跃的新项目。</p>
           <div className="grid gap-4 xl:grid-cols-2">
@@ -518,26 +521,32 @@ export function HomePage() {
         </div>
 
         {projectsQuery.isLoading ? (
-          <div className="rounded-[24px] border border-white/80 bg-white/80 p-6 text-sm text-slate/80 shadow-card">
-            正在从本地数据库读取项目列表...
-          </div>
+          <QueryState
+            type="loading"
+            title="正在读取项目列表"
+            detail="已连接本地数据库，正在加载 AI 项目数据。"
+          />
         ) : null}
 
         {projectsQuery.isError ? (
-          <div className="rounded-[24px] border border-red-200 bg-red-50 p-6 text-sm text-red-700 shadow-card">
-            项目列表读取失败，请检查 Tauri 命令与数据库初始化状态。
-          </div>
+          <QueryState
+            type="error"
+            title="项目列表读取失败"
+            detail="请检查 Tauri 命令与数据库初始化状态，然后重试。"
+          />
         ) : null}
 
         {syncDataMutation.isError && hasLocalCache ? (
-          <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 shadow-card">
-            当前列表来自本地缓存而非最新同步结果。你仍可继续筛选、查看详情和收藏，待网络恢复后再重试同步即可。
-          </div>
+          <QueryState
+            type="empty"
+            title="已自动回退本地缓存"
+            detail="当前列表来自本地缓存而非最新同步结果。你仍可继续筛选、查看详情和收藏，待网络恢复后再重试同步即可。"
+          />
         ) : null}
 
         {projects.length ? (
           <>
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-2">
               {projects.map((project) => (
                 <ProjectCard
                   key={project.id}
@@ -548,7 +557,7 @@ export function HomePage() {
               ))}
             </div>
 
-            <div className="flex flex-col gap-3 rounded-[24px] border border-white/80 bg-white/80 p-4 text-sm text-slate/80 shadow-card sm:flex-row sm:items-center sm:justify-between">
+            <div className="glass-surface flex flex-col gap-3 rounded-[24px] border border-white/80 p-4 text-sm text-slate/80 shadow-soft sm:flex-row sm:items-center sm:justify-between">
               <p>无限加载已启用，滚动到底部会继续读取下一批项目；当前每批 {limit} 条。</p>
               <div className="flex items-center gap-3">
                 <button
@@ -565,17 +574,30 @@ export function HomePage() {
             <div ref={sentinelRef} className="h-2" />
 
             {projectsQuery.isFetchingNextPage ? (
-              <div className="rounded-[24px] border border-white/80 bg-white/80 p-4 text-sm text-slate/70 shadow-card">
-                正在加载更多项目...
-              </div>
+              <QueryState
+                type="loading"
+                title="正在加载更多项目"
+                detail="已触发无限加载，正在拉取下一批数据。"
+              />
             ) : null}
           </>
         ) : null}
 
         {projectsQuery.data && projects.length === 0 ? (
-          <div className="rounded-[24px] border border-white/80 bg-white/80 p-6 text-sm text-slate/80 shadow-card">
-            当前筛选条件下没有项目。你可以放宽语言、分类或 Demo 条件，或者先触发一次同步。
-          </div>
+          <QueryState
+            type="empty"
+            title="暂无匹配项目"
+            detail="当前筛选条件下没有项目。你可以放宽语言、分类或 Demo 条件，或者先触发一次同步。"
+            action={
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="rounded-full border border-slate/20 bg-white px-4 py-2 text-sm font-medium text-slate transition hover:border-accent hover:text-accent"
+              >
+                一键重置筛选
+              </button>
+            }
+          />
         ) : null}
       </section>
     </div>

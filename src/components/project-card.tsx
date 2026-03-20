@@ -53,10 +53,10 @@ export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = fa
   const description = project.descriptionLong || project.summary;
 
   return (
-    <article className="group rounded-[24px] border border-white/80 bg-white/85 p-5 shadow-card transition hover:-translate-y-1 hover:shadow-2xl">
+    <article className="glass-surface group rounded-[24px] border border-white/80 p-5 shadow-soft transition duration-300 ease-out hover:-translate-y-1 hover:shadow-card motion-reduce:transform-none motion-reduce:transition-none">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate/70">{project.category}</p>
+          <p className="text-sm font-medium text-slate/70">{project.category} · {project.era === "classic" ? "经典 AI" : "最新 AI"}</p>
           <h2 className="mt-2 text-xl font-semibold text-ink">{project.repoName}</h2>
           <p className="mt-2 text-xs font-medium uppercase tracking-[0.24em] text-slate/55">
             推荐分 {project.score}
@@ -72,7 +72,7 @@ export function ProjectCard({ project, onToggleFavorite, isTogglingFavorite = fa
               disabled={isTogglingFavorite}
               onClick={() => onToggleFavorite(project.id)}
               className={[
-                "inline-flex h-10 w-10 items-center justify-center rounded-full border transition",
+                "inline-flex h-10 w-10 items-center justify-center rounded-full border transition duration-300",
                 project.isFavorite
                   ? "border-accent/30 bg-accent/10 text-accent"
                   : "border-slate/15 bg-white text-slate hover:border-accent/30 hover:text-accent",

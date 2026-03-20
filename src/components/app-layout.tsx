@@ -13,8 +13,8 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen text-ink">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-        <header className="rounded-[28px] border border-white/70 bg-white/70 px-6 py-5 shadow-card backdrop-blur">
+      <div className="mx-auto flex min-h-screen max-w-7xl animate-fade-up flex-col px-4 py-6 sm:px-6 lg:px-8 motion-reduce:animate-none">
+        <header className="glass-surface rounded-[28px] border border-white/70 px-6 py-5 shadow-soft">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-3">
               <Link to="/" className="inline-flex items-center gap-3 text-lg font-semibold">
@@ -34,7 +34,7 @@ export function AppLayout() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-accent/20 bg-accent/10 px-4 py-3 text-sm text-ink">
+              <div className="rounded-2xl border border-amber/30 bg-amber/10 px-4 py-3 text-sm text-ink shadow-soft">
                 <div className="flex items-center gap-2 font-medium">
                   <Sparkles className="h-4 w-4 text-accent" />
                   模型配置
@@ -42,7 +42,7 @@ export function AppLayout() {
                 <p className="mt-1 text-slate/80">{publicAppConfig.modelLabel}</p>
               </div>
 
-              <nav className="flex items-center gap-2 rounded-2xl border border-white/80 bg-white/80 p-2 shadow-sm backdrop-blur">
+              <nav className="glass-surface flex items-center gap-2 rounded-2xl border border-white/80 p-2 shadow-soft">
                 {navigationItems.map(({ to, label, icon: Icon }) => (
                   <NavLink
                     key={to}

@@ -3,10 +3,23 @@
 @tailwind utilities;
 
 :root {
+  --surface-1: #fff8ef;
+  --surface-2: #f5ebdd;
+  --surface-3: #e9dbc6;
+  --text-primary: #112031;
+  --text-secondary: #385170;
+  --accent-1: #ff7a59;
+  --accent-2: #d99b45;
+  --shadow-soft: 0 12px 30px rgba(17, 32, 49, 0.08);
+  --motion-fast: 180ms;
+  --motion-base: 260ms;
+  --motion-slow: 420ms;
+  --easing-standard: cubic-bezier(0.22, 1, 0.36, 1);
   color: #112031;
   background:
-    radial-gradient(circle at top, rgba(255, 122, 89, 0.18), transparent 28%),
-    linear-gradient(180deg, #fffaf3 0%, #f4efe5 48%, #efe7db 100%);
+    radial-gradient(circle at 10% 8%, rgba(255, 122, 89, 0.2), transparent 30%),
+    radial-gradient(circle at 90% 12%, rgba(217, 155, 69, 0.14), transparent 28%),
+    linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 48%, var(--surface-3) 100%);
   font-family: "SF Pro Display", "PingFang SC", "Hiragino Sans GB", sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -29,6 +42,8 @@ body,
 
 body {
   min-height: 100vh;
+  color: var(--text-primary);
+  overflow-y: scroll;
 }
 
 a {
@@ -44,6 +59,29 @@ select {
 
 button {
   cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.glass-surface {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.68));
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(10px);
+}
+
+.status-card {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 14px 16px;
 }
 
 ::selection {

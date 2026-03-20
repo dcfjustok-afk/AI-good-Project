@@ -1,5 +1,6 @@
 import { Heart } from "lucide-react";
 import { ProjectCard } from "../components/project-card";
+import { QueryState } from "../components/query-state";
 import { useFavorites } from "../hooks/use-favorites";
 import { useToggleFavorite } from "../hooks/use-toggle-favorite";
 import { useState } from "react";
@@ -12,7 +13,7 @@ export function FavoritesPage() {
   const favorites = favoritesQuery.data?.items ?? [];
 
   return (
-    <section className="space-y-5 rounded-[28px] border border-white/80 bg-white/80 p-6 shadow-card backdrop-blur">
+    <section className="glass-surface space-y-5 rounded-[28px] border border-white/80 p-6 shadow-soft">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-center gap-3 text-ink">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent">
@@ -38,11 +39,23 @@ export function FavoritesPage() {
         </label>
       </div>
 
-      {favoritesQuery.isLoading ? <p className="text-sm text-slate/80">正在读取收藏列表...</p> : null}
+      {favoritesQuery.isLoading ? (
+        <QueryState
+          type="loading"
+          title="正在读取收藏列表"
+          detail="正在从本地缓存载入已收藏项目。"
+        />
+      ) : null}
       {favoritesQuery.isFetching && favorites.length ? (
         <p className="text-sm text-slate/70">正在后台刷新，当前展示的是缓存中的收藏结果。</p>
       ) : null}
-      {favoritesQuery.isError ? <p className="text-sm text-red-700">收藏列表读取失败。</p> : null}
+      {favoritesQuery.isError ? (
+        <QueryState
+          type="error"
+          title="收藏列表读取失败"
+          detail="请检查数据库连接状态后重试。"
+        />
+      ) : null}
 
       {favorites.length ? (
         <div className="grid gap-4 xl:grid-cols-2">
@@ -58,9 +71,11 @@ export function FavoritesPage() {
       ) : null}
 
       {favoritesQuery.data && favorites.length === 0 ? (
-        <div className="rounded-[24px] bg-mist p-5 text-sm text-slate/80">
-          还没有收藏项目。你可以在首页卡片或详情页把感兴趣的仓库加入收藏。
-        </div>
+        <QueryState
+          type="empty"
+          title="收藏夹还是空的"
+          detail="你可以在首页卡片或详情页把感兴趣的仓库加入收藏。"
+        />
       ) : null}
     </section>
   );

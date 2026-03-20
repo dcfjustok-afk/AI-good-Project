@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
 import { useProjectDetail } from "../hooks/use-project-detail";
 import { useToggleFavorite } from "../hooks/use-toggle-favorite";
+import { QueryState } from "../components/query-state";
 
 export function ProjectDetailPage() {
   const { owner, repo } = useParams();
@@ -21,9 +22,13 @@ export function ProjectDetailPage() {
         返回榜单
       </Link>
 
-      <article className="rounded-[32px] border border-white/80 bg-white/85 p-6 shadow-card backdrop-blur sm:p-8">
+      <article className="glass-surface rounded-[32px] border border-white/80 p-6 shadow-soft sm:p-8">
         {detailQuery.isLoading ? (
-          <p className="text-sm text-slate/80">正在读取项目详情...</p>
+          <QueryState
+            type="loading"
+            title="正在读取项目详情"
+            detail="正在从本地数据库加载详情内容，请稍候。"
+          />
         ) : null}
 
         {detailQuery.isFetching && detail ? (
@@ -31,7 +36,11 @@ export function ProjectDetailPage() {
         ) : null}
 
         {detailQuery.isError ? (
-          <p className="text-sm text-red-700">详情读取失败，请确认数据库中存在该项目。</p>
+          <QueryState
+            type="error"
+            title="详情读取失败"
+            detail="请确认数据库中存在该项目，或先返回首页执行一次同步。"
+          />
         ) : null}
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -73,7 +82,7 @@ export function ProjectDetailPage() {
         </div>
 
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          <section className="rounded-[24px] bg-mist p-5">
+          <section className="glass-surface rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">结构化摘要</h2>
             <ul className="mt-3 space-y-3 text-sm leading-6 text-slate/80">
               {(detail?.highlights || ["当前仓库暂无亮点摘要，可在下一次同步后补齐"]).map((item) => (
@@ -87,7 +96,7 @@ export function ProjectDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-[24px] bg-mist p-5">
+          <section className="glass-surface rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">项目元数据</h2>
             <dl className="mt-3 grid gap-3 text-sm text-slate/80 sm:grid-cols-2">
               <div>
@@ -146,7 +155,7 @@ export function ProjectDetailPage() {
         </div>
 
         {detail?.useCases?.length ? (
-          <section className="mt-4 rounded-[24px] bg-mist p-5">
+          <section className="glass-surface mt-4 rounded-[24px] bg-mist p-5">
             <h2 className="text-lg font-semibold text-ink">适用场景</h2>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-slate/80">
               {detail.useCases.map((item) => (
